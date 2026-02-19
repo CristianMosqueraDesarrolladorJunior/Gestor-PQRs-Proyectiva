@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyectiva - Gestión de PQRs</title>
+    <!-- Tailwind CSS (Diseño moderno y rápido) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- SweetAlert2 para notificaciones -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        proyectiva: {
+                            blue: '#002A54', // Azul corporativo (confianza)
+                            light: '#E6F0FA',
+                            orange: '#FF6B00', // Naranja (frescura, acción)
+                            gray: '#F3F4F6'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; rounded-full; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Animaciones para el Modal */
+        .modal-enter { animation: fadeIn 0.3s ease-out forwards; }
+        .modal-content-enter { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-gray-800">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-proyectiva-blue text-white flex flex-col shadow-xl z-20 transition-all duration-300">
+        <div class="p-6 flex items-center justify-center border-b border-blue-800">
+            <!-- Logo Placeholder -->
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-proyectiva-orange flex items-center justify-center font-bold text-xl">P</div>
+                <h1 class="text-xl font-bold tracking-wide">Proyectiva</h1>
+            </div>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-2">
+            <a href="#" onclick="switchTab('dashboard')" class="flex items-center gap-3 p-3 rounded-lg bg-blue-800 text-white transition-colors" id="nav-dashboard">
+                <i class="fas fa-chart-pie w-5"></i> Dashboard
+            </a>
+            <a href="#" onclick="switchTab('pqrs')" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors" id="nav-pqrs">
+                <i class="fas fa-inbox w-5"></i> Gestión de PQRs
+            </a>
+            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
+                <i class="fas fa-users-cog w-5"></i> Administración
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-blue-800">
+            <div class="flex items-center gap-3">
+                <img src="https://ui-avatars.com/api/?name=Asesor+Activo&background=FF6B00&color=fff" alt="User" class="w-10 h-10 rounded-full border-2 border-white">
+                <div>
+                    <p class="text-sm font-semibold">Asesor Activo</p>
+                    <p class="text-xs text-blue-300">asesor@proyectiva.com</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 relative">
+        <!-- Topbar -->
+        <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 z-10">
+            <h2 class="text-xl font-semibold text-gray-700" id="header-title">Dashboard Ejecutivo</h2>
+            <div class="flex items-center gap-4">
+                <button onclick="loadData()" class="p-2 text-gray-400 hover:text-proyectiva-orange transition-colors" title="Actualizar Datos">
+                    <i class="fas fa-sync-alt" id="sync-icon"></i>
+                </button>
+                <div class="relative">
+                    <i class="fas fa-bell text-gray-400 text-xl"></i>
+                    <span class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">3</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Contenedor Scrollable -->
+        <div class="flex-1 overflow-y-auto custom-scrollbar p-8" id="main-container">
+            
+            <!-- VISTA: DASHBOARD -->
+            <div id="view-dashboard" class="space-y-6">
+                <!-- KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Card 1 -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Total PQRs</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="kpi-total">0</h3>
+                            </div>
+                            <div class="p-3 bg-blue-50 rounded-lg text-blue-500"><i class="fas fa-layer-group text-xl"></i></div>
+                        </div>
+                    </div>
+                    <!-- Card 2 -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">En Proceso</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="kpi-proceso">0</h3>
+                            </div>
+                            <div class="p-3 bg-yellow-50 rounded-lg text-yellow-600"><i class="fas fa-clock text-xl"></i></div>
+                        </div>
+                    </div>
+                    <!-- Card 3 -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Resueltas</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="kpi-resueltas">0</h3>
+                            </div>
+                            <div class="p-3 bg-green-50 rounded-lg text-green-500"><i class="fas fa-check-circle text-xl"></i></div>
+                        </div>
+                    </div>
+                    <!-- Card 4 -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500 hover:shadow-md transition-shadow">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">SLA Vencido</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="kpi-vencidas">0</h3>
+                            </div>
+                            <div class="p-3 bg-red-50 rounded-lg text-red-500"><i class="fas fa-exclamation-triangle text-xl"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts & Recents -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 lg:col-span-1">
+                        <h3 class="text-lg font-semibold text-gray-700 mb-4">Distribución por Tipo</h3>
+                        <div class="relative h-64 w-full">
+                            <canvas id="typeChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 lg:col-span-2">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-700">Atención Reciente</h3>
+                            <button onclick="switchTab('pqrs')" class="text-sm text-proyectiva-orange font-medium hover:underline">Ver todas</button>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="text-xs text-gray-500 uppercase border-b border-gray-200">
+                                        <th class="pb-3 font-semibold">ID</th>
+                                        <th class="pb-3 font-semibold">Solicitante</th>
+                                        <th class="pb-3 font-semibold">Tipo</th>
+                                        <th class="pb-3 font-semibold">Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recent-table-body" class="text-sm">
+                                    <!-- Filas generadas por JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA: TABLA DE PQRS -->
+            <div id="view-pqrs" class="hidden space-y-4">
+                <div class="bg-white p-4 rounded-xl shadow-sm flex flex-wrap gap-4 items-center justify-between">
+                    <div class="relative flex-1 min-w-[300px]">
+                        <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                        <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="Buscar por nombre, ID, documento..." class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-proyectiva-orange focus:border-transparent outline-none transition-all">
+                    </div>
+                    <div class="flex gap-2">
+                        <select id="filterEstado" onchange="filterTable()" class="border border-gray-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none bg-white">
+                            <option value="">Todos los Estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Resuelto">Resuelto</option>
+                            <option value="Cerrado">Cerrado</option>
+                        </select>
+                        <button class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                            <i class="fas fa-filter mr-2"></i> Más Filtros
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-50">
+                            <tr class="text-xs text-gray-500 uppercase">
+                                <th class="px-6 py-4 font-semibold">ID / Fecha</th>
+                                <th class="px-6 py-4 font-semibold">Solicitante</th>
+                                <th class="px-6 py-4 font-semibold">Detalle Trámite</th>
+                                <th class="px-6 py-4 font-semibold">Estado</th>
+                                <th class="px-6 py-4 font-semibold text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pqr-table-body" class="divide-y divide-gray-100 text-sm">
+                            <!-- Filas generadas dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODAL DE GESTIÓN (Crucial para la UX) -->
+    <div id="gestionModal" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <!-- Overlay -->
+        <div class="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
+        
+        <!-- Modal Content -->
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative z-10 modal-content-enter overflow-hidden mx-4">
+            
+            <!-- Header Modal -->
+            <div class="bg-proyectiva-blue px-6 py-4 flex justify-between items-center text-white">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fas fa-clipboard-list text-proyectiva-orange"></i>
+                        Gestión de PQR: <span id="modal-id">---</span>
+                    </h2>
+                    <p class="text-sm text-blue-200 mt-1">Radicado el: <span id="modal-fecha">---</span></p>
+                </div>
+                <button onclick="closeModal()" class="text-white hover:text-proyectiva-orange transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+
+            <!-- Body Modal (Grid Layout) -->
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50 flex flex-col lg:flex-row gap-6">
+                
+                <!-- Columna Izquierda: Información -->
+                <div class="flex-1 space-y-6">
+                    
+                    <!-- Tarjeta Solicitante -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">1. Información del Solicitante</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="col-span-2">
+                                <p class="text-xs text-gray-400">Nombre Completo</p>
+                                <p class="font-semibold text-gray-800" id="mod-nombre">---</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">Documento</p>
+                                <p class="font-medium text-gray-800"><span id="mod-tipodoc"></span> <span id="mod-numdoc">---</span></p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-400">Teléfono</p>
+                                <p class="font-medium text-gray-800"><i class="fas fa-phone-alt text-gray-400 text-xs mr-1"></i> <span id="mod-tel">---</span></p>
+                            </div>
+                            <div class="col-span-2">
+                                <p class="text-xs text-gray-400">Correo Electrónico</p>
+                                <p class="font-medium text-proyectiva-orange"><i class="fas fa-envelope text-gray-400 text-xs mr-1"></i> <span id="mod-email">---</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tarjeta Trámite -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">2. Detalle del Trámite</h3>
+                        <div class="mb-4 flex gap-3">
+                            <span id="mod-badge-tipo" class="px-3 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600">---</span>
+                            <span class="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-proyectiva-blue border border-blue-100" id="mod-producto">---</span>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <p class="text-xs text-gray-400">Asunto</p>
+                                <p class="font-semibold text-gray-800 text-sm" id="mod-asunto">---</p>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                                <p class="text-xs text-gray-400 mb-1">Descripción de la Solicitud</p>
+                                <p class="text-sm text-gray-700 whitespace-pre-wrap" id="mod-desc">---</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Columna Derecha: Gestión y Workflow -->
+                <div class="flex-1 flex flex-col gap-6">
+                    
+                    <!-- Formulario de Acción -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100 ring-1 ring-blue-50">
+                        <h3 class="text-sm font-bold text-proyectiva-blue uppercase tracking-wider mb-4 border-b pb-2 flex items-center gap-2">
+                            <i class="fas fa-bolt text-proyectiva-orange"></i> 3. Área de Gestión
+                        </h3>
+                        
+                        <form id="formGestion" onsubmit="savePQR(event)">
+                            <div class="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Cambiar Estado</label>
+                                    <select id="inp-estado" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none bg-gray-50">
+                                        <option value="Pendiente">Pendiente</option>
+                                        <option value="En Proceso">En Proceso</option>
+                                        <option value="Resuelto">Resuelto</option>
+                                        <option value="Cerrado">Cerrado</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-gray-600 mb-1">Asignar a:</label>
+                                    <select id="inp-asesor" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none bg-gray-50">
+                                        <option value="Sin Asignar">Sin Asignar</option>
+                                        <option value="yo@proyectiva.com">Asignarme a mí</option>
+                                        <!-- Más opciones pobladas por JS -->
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Registro de Acción / Notas internas</label>
+                                <textarea id="inp-nota" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none" placeholder="Describe qué acción tomaste o la respuesta brindada al cliente..."></textarea>
+                            </div>
+                            
+                            <div class="flex items-center justify-between mt-6">
+                                <label class="flex items-center gap-2 cursor-pointer text-sm text-gray-600 hover:text-proyectiva-blue transition-colors">
+                                    <i class="fas fa-paperclip"></i> Adjuntar archivo
+                                    <input type="file" class="hidden">
+                                </label>
+                                <button type="submit" class="bg-proyectiva-orange hover:bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-all transform hover:scale-105 flex items-center gap-2">
+                                    <i class="fas fa-save"></i> Guardar Gestión
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Historial (Audit Trail) -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">Historial de Trazabilidad</h3>
+                        <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar relative" id="mod-historial">
+                            <!-- Timeline elements generated by JS -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPTS CORE DE LA APLICACIÓN -->
+    <script>
+        // ESTADO GLOBAL
+        let appData = [];
+        let currentPQR = null;
+        let chartInstance = null;
+
+        // --- MOCK DE DATOS PARA PREVIEW (Simula lo que devuelve Apps Script) ---
+        // En Apps Script real, usamos google.script.run
+        const isAppsScript = typeof google !== 'undefined' && google.script;
+        
+        const mockData = [
+            {
+                rowNumber: 2, id: 'PQR-2026-001', tipo: 'QUEJA', fechaCreacion: '2026-02-17T10:08:27',
+                estado: 'Pendiente', prioridad: 'Alta', asesor: 'Sin Asignar', fechaAsignacion: '', fechaCierre: '',
+                informacion: {
+                    solicitante: { nombreCompleto: "María González López", tipoDocumento: "CC", numeroDocumento: "9876543210", email: "maria.gonzalez@example.com", telefono: "3109876543" },
+                    tramite: { tipoSolicitud: "QUEJA", productoRelacionado: "Póliza Vida", asunto: "Cobro indebido", descripcionDetallada: "Me han cobrado dos veces la cuota de este mes en mi tarjeta." }
+                },
+                historial: []
+            },
+            {
+                rowNumber: 3, id: 'PQR-2026-002', tipo: 'PETICION', fechaCreacion: '2026-02-16T14:30:00',
+                estado: 'En Proceso', prioridad: 'Media', asesor: 'maria.gaitan@proyectivaseguros.com', fechaAsignacion: '2026-02-16T15:00:00', fechaCierre: '',
+                informacion: {
+                    solicitante: { nombreCompleto: "Carlos Ruiz", tipoDocumento: "CE", numeroDocumento: "123456", email: "carlos.ruiz@mail.com", telefono: "3201234567" },
+                    tramite: { tipoSolicitud: "PETICION", productoRelacionado: "Póliza Auto", asunto: "Certificado de cobertura", descripcionDetallada: "Solicito certificado urgente para trámite de tránsito." }
+                },
+                historial: [
+                    { fecha: '2026-02-16T15:00:00', usuario: 'maria.gaitan@proyectivaseguros.com', accion: 'PQR asignada e iniciada validación en sistema core.', estadoAnterior: 'Pendiente', estadoNuevo: 'En Proceso' }
+                ]
+            }
+        ];
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+        });
+
+        // --- NAVEGACIÓN ---
+        function switchTab(tabId) {
+            // UI classes
+            document.querySelectorAll('aside nav a').forEach(a => {
+                a.classList.remove('bg-blue-800', 'text-white');
+                a.classList.add('text-blue-200');
+            });
+            document.getElementById(`nav-${tabId}`).classList.add('bg-blue-800', 'text-white');
+            document.getElementById(`nav-${tabId}`).classList.remove('text-blue-200');
+
+            // Views
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-pqrs').classList.add('hidden');
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+
+            // Header title
+            document.getElementById('header-title').innerText = tabId === 'dashboard' ? 'Dashboard Ejecutivo' : 'Gestión Integral de PQRs';
+        }
+
+        // --- CARGA DE DATOS ---
+        function loadData() {
+            const syncIcon = document.getElementById('sync-icon');
+            syncIcon.classList.add('animate-spin');
+
+            if (isAppsScript) {
+                // Entorno Producción: Llamar a Code.gs
+                google.script.run
+                    .withSuccessHandler(response => {
+                        const res = JSON.parse(response);
+                        if(res.status === 'success') {
+                            appData = res.data;
+                            processData();
+                            syncIcon.classList.remove('animate-spin');
+                        } else {
+                            showError("Error al cargar datos", res.message);
+                            syncIcon.classList.remove('animate-spin');
+                        }
+                    })
+                    .withFailureHandler(error => {
+                        showError("Error de conexión", error);
+                        syncIcon.classList.remove('animate-spin');
+                    })
+                    .getPQRs();
+            } else {
+                // Entorno Local/Preview: Usar Mock
+                setTimeout(() => {
+                    appData = [...mockData];
+                    processData();
+                    syncIcon.classList.remove('animate-spin');
+                }, 800);
+            }
+        }
+
+        // --- PROCESAMIENTO Y RENDERIZADO ---
+        function processData() {
+            renderKPIs();
+            renderTable(appData);
+            renderRecentTable(appData.slice(0, 5));
+            drawChart();
+        }
+
+        function renderKPIs() {
+            const total = appData.length;
+            const proceso = appData.filter(p => p.estado === 'En Proceso').length;
+            const resueltas = appData.filter(p => p.estado === 'Resuelto' || p.estado === 'Cerrado').length;
+            // Lógica simple de SLA vencido (más de 3 días)
+            const vencidas = appData.filter(p => p.estado !== 'Resuelto' && p.estado !== 'Cerrado' && (new Date() - new Date(p.fechaCreacion)) > (3 * 24 * 60 * 60 * 1000)).length;
+
+            document.getElementById('kpi-total').innerText = total;
+            document.getElementById('kpi-proceso').innerText = proceso;
+            document.getElementById('kpi-resueltas').innerText = resueltas;
+            document.getElementById('kpi-vencidas').innerText = vencidas;
+        }
+
+        // Utilidad para Badges
+        function getStatusBadge(estado) {
+            const styles = {
+                'Pendiente': 'bg-red-50 text-red-600 border-red-200',
+                'En Proceso': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+                'Resuelto': 'bg-green-50 text-green-600 border-green-200',
+                'Cerrado': 'bg-gray-100 text-gray-600 border-gray-200'
+            };
+            const style = styles[estado] || styles['Pendiente'];
+            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${estado}</span>`;
+        }
+        
+        function getTypeBadge(tipo) {
+            const color = tipo === 'QUEJA' ? 'red' : tipo === 'RECLAMO' ? 'orange' : 'blue';
+            return `<span class="px-2 py-1 text-xs font-bold rounded bg-${color}-100 text-${color}-700">${tipo}</span>`;
+        }
+
+        function formatDate(isoString) {
+            if(!isoString) return 'N/A';
+            const d = new Date(isoString);
+            return d.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('pqr-table-body');
+            tbody.innerHTML = '';
+
+            data.forEach(pqr => {
+                const info = pqr.informacion;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors border-b border-gray-50';
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="font-bold text-proyectiva-blue">${pqr.id}</div>
+                        <div class="text-xs text-gray-500">${formatDate(pqr.fechaCreacion)}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="font-semibold text-gray-800">${info.solicitante?.nombreCompleto || 'Sin nombre'}</div>
+                        <div class="text-xs text-gray-500">${info.solicitante?.email || ''}</div>
+                    </td>
+                    <td class="px-6 py-4 max-w-xs">
+                        <div class="flex gap-2 mb-1">${getTypeBadge(info.tramite?.tipoSolicitud)}</div>
+                        <div class="text-sm text-gray-700 truncate" title="${info.tramite?.asunto}">${info.tramite?.asunto || ''}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${getStatusBadge(pqr.estado)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <button onclick='openModal(${JSON.stringify(pqr).replace(/'/g, "&#39;")})' class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-transform transform hover:scale-105 shadow-sm">
+                            Gestionar
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500">No se encontraron PQRs.</td></tr>`;
+            }
+        }
+
+        function renderRecentTable(data) {
+            const tbody = document.getElementById('recent-table-body');
+            tbody.innerHTML = '';
+            data.forEach(pqr => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-50';
+                tr.innerHTML = `
+                    <td class="py-3 text-xs font-bold text-gray-700">${pqr.id}</td>
+                    <td class="py-3 text-sm truncate max-w-[150px]">${pqr.informacion.solicitante?.nombreCompleto}</td>
+                    <td class="py-3">${getTypeBadge(pqr.informacion.tramite?.tipoSolicitud)}</td>
+                    <td class="py-3">${getStatusBadge(pqr.estado)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function filterTable() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const estado = document.getElementById('filterEstado').value;
+            
+            const filtered = appData.filter(pqr => {
+                const matchTerm = pqr.id.toLowerCase().includes(term) || 
+                                  (pqr.informacion.solicitante?.nombreCompleto || '').toLowerCase().includes(term) ||
+                                  (pqr.informacion.solicitante?.numeroDocumento || '').includes(term);
+                const matchEstado = estado === '' || pqr.estado === estado;
+                return matchTerm && matchEstado;
+            });
+            renderTable(filtered);
+        }
+
+        function drawChart() {
+            const ctx = document.getElementById('typeChart').getContext('2d');
+            
+            const conteo = { 'QUEJA': 0, 'PETICION': 0, 'RECLAMO': 0 };
+            appData.forEach(p => {
+                const t = p.informacion.tramite?.tipoSolicitud || 'OTRO';
+                conteo[t] = (conteo[t] || 0) + 1;
+            });
+
+            if(chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(conteo),
+                    datasets: [{
+                        data: Object.values(conteo),
+                        backgroundColor: ['#EF4444', '#3B82F6', '#FF6B00', '#10B981'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } }
+                    }
+                }
+            });
+        }
+
+        // --- LÓGICA DEL MODAL ---
+        function openModal(pqr) {
+            currentPQR = pqr;
+            const info = pqr.informacion;
+            const sol = info.solicitante || {};
+            const tram = info.tramite || {};
+
+            // Poblar UI
+            document.getElementById('modal-id').innerText = pqr.id;
+            document.getElementById('modal-fecha').innerText = formatDate(pqr.fechaCreacion);
+            
+            document.getElementById('mod-nombre').innerText = sol.nombreCompleto || 'N/A';
+            document.getElementById('mod-tipodoc').innerText = sol.tipoDocumento || '';
+            document.getElementById('mod-numdoc').innerText = sol.numeroDocumento || 'N/A';
+            document.getElementById('mod-tel').innerText = sol.telefono || 'N/A';
+            document.getElementById('mod-email').innerText = sol.email || 'N/A';
+            
+            document.getElementById('mod-badge-tipo').innerText = tram.tipoSolicitud || 'N/A';
+            document.getElementById('mod-producto').innerText = tram.productoRelacionado || 'N/A';
+            document.getElementById('mod-asunto').innerText = tram.asunto || 'N/A';
+            document.getElementById('mod-desc').innerText = tram.descripcionDetallada || 'Sin descripción';
+            
+            // Poblar Formulario
+            document.getElementById('inp-estado').value = pqr.estado;
+            document.getElementById('inp-asesor').value = pqr.asesor;
+            document.getElementById('inp-nota').value = '';
+
+            renderHistorial(pqr.historial);
+
+            // Mostrar Modal
+            document.getElementById('gestionModal').classList.remove('hidden');
+            document.getElementById('gestionModal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('gestionModal').classList.add('hidden');
+            document.getElementById('gestionModal').classList.remove('flex');
+            currentPQR = null;
+        }
+
+        function renderHistorial(historial) {
+            const container = document.getElementById('mod-historial');
+            container.innerHTML = '';
+            
+            if(!historial || historial.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-400 italic mt-4 text-center">No hay registros de gestión previos.</p>';
+                return;
+            }
+
+            // Linea vertical del timeline
+            const timelineLine = document.createElement('div');
+            timelineLine.className = 'absolute left-[11px] top-2 bottom-2 w-0.5 bg-gray-200 z-0';
+            container.appendChild(timelineLine);
+
+            historial.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'relative pl-8 mb-6 z-10';
+                
+                // Color del punto según si cambió estado
+                let dotColor = 'bg-blue-400';
+                if(item.estadoNuevo === 'Resuelto' || item.estadoNuevo === 'Cerrado') dotColor = 'bg-green-500';
+                
+                itemDiv.innerHTML = `
+                    <div class="absolute left-0 top-1 w-6 h-6 rounded-full ${dotColor} border-4 border-white shadow-sm"></div>
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-xs font-bold text-gray-700">${item.usuario}</span>
+                            <span class="text-[10px] text-gray-500 flex items-center gap-1"><i class="far fa-clock"></i> ${formatDate(item.fecha)}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 leading-snug">${item.accion}</p>
+                        ${item.estadoAnterior !== item.estadoNuevo ? 
+                          `<div class="mt-2 text-[10px] bg-white inline-block px-2 py-1 rounded border border-gray-200 text-gray-500">
+                             Estado: <span class="line-through">${item.estadoAnterior}</span> &rarr; <span class="font-bold text-proyectiva-orange">${item.estadoNuevo}</span>
+                           </div>` : ''}
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        // --- GUARDAR GESTIÓN ---
+        function savePQR(e) {
+            e.preventDefault();
+            
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            const nuevoEstado = document.getElementById('inp-estado').value;
+            const nuevoAsesor = document.getElementById('inp-asesor').value;
+            const nota = document.getElementById('inp-nota').value;
+
+            const payload = {
+                ...currentPQR,
+                estadoAnterior: currentPQR.estado,
+                estado: nuevoEstado,
+                asesor: nuevoAsesor,
+                nuevaAccionTexto: nota
+            };
+
+            if (isAppsScript) {
+                google.script.run
+                    .withSuccessHandler(response => {
+                        const res = JSON.parse(response);
+                        if(res.status === 'success') {
+                            Swal.fire({
+                                icon: 'success', title: 'Gestión guardada', text: 'La PQR ha sido actualizada.',
+                                confirmButtonColor: '#FF6B00'
+                            });
+                            closeModal();
+                            loadData(); // Recargar todo
+                        } else {
+                            showError("Error al guardar", res.message);
+                        }
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="fas fa-save"></i> Guardar Gestión';
+                    })
+                    .withFailureHandler(error => {
+                        showError("Error de red", error);
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="fas fa-save"></i> Guardar Gestión';
+                    })
+                    .updatePQR(JSON.stringify(payload));
+            } else {
+                // Mock Guardado
+                setTimeout(() => {
+                    Swal.fire({ icon: 'success', title: 'Gestión guardada (Modo Preview)', text: 'En el entorno real esto se guardaría en Google Sheets.', confirmButtonColor: '#FF6B00' });
+                    closeModal();
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = '<i class="fas fa-save"></i> Guardar Gestión';
+                }, 1000);
+            }
+        }
+
+        function showError(title, text) {
+            Swal.fire({ icon: 'error', title: title, text: text, confirmButtonColor: '#002A54' });
+        }
+    </script>
+</body>
+</html>
