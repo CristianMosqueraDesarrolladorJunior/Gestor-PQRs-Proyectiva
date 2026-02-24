@@ -40,6 +40,8 @@
         .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; rounded-full; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        #sidebar { position: fixed; left: 0; top: 0; height: 100%; }
+        .sidebar-collapsed { transform: translateX(-100%); pointer-events: none; }
         
         /* Animaciones para el Modal */
         .modal-enter { animation: fadeIn 0.3s ease-out forwards; }
@@ -51,30 +53,35 @@
 <body class="flex h-screen overflow-hidden text-gray-800">
 
     <!-- Sidebar -->
-    <aside class="w-64 bg-proyectiva-blue text-white flex flex-col shadow-xl z-20 transition-all duration-300">
-        <div class="p-6 flex items-center justify-center border-b border-blue-800">
-            <!-- Logo Placeholder -->
+    <aside id="sidebar" class="w-64 bg-proyectiva-blue text-white flex flex-col shadow-xl z-20 transition-all duration-300 overflow-hidden">
+        <div class="p-4 flex items-center justify-between border-b border-blue-800 shrink-0">
             <div class="flex items-center gap-3">
-                <div class="w-8 h-8 rounded-lg bg-proyectiva-orange flex items-center justify-center font-bold text-xl">P</div>
+                <div class="w-8 h-8 rounded-lg bg-proyectiva-orange flex items-center justify-center font-bold text-xl shrink-0">P</div>
                 <h1 class="text-xl font-bold tracking-wide">Proyectiva</h1>
             </div>
+            <button onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-blue-800 transition-colors shrink-0" title="Ocultar menú">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         
-        <nav class="flex-1 p-4 space-y-2">
-            <a href="#" onclick="switchTab('dashboard')" class="flex items-center gap-3 p-3 rounded-lg bg-blue-800 text-white transition-colors" id="nav-dashboard">
-                <i class="fas fa-chart-pie w-5"></i> Dashboard
+        <nav class="flex-1 p-4 space-y-2 overflow-y-auto">
+            <a href="#" onclick="switchTab('dashboard'); return false;" class="flex items-center gap-3 p-3 rounded-lg bg-blue-800 text-white transition-colors" id="nav-dashboard">
+                <i class="fas fa-chart-pie w-5 shrink-0"></i>
+                <span class="sidebar-text">Dashboard</span>
             </a>
-            <a href="#" onclick="switchTab('pqrs')" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors" id="nav-pqrs">
-                <i class="fas fa-inbox w-5"></i> Gestión de PQRs
+            <a href="#" onclick="switchTab('pqrs'); return false;" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors" id="nav-pqrs">
+                <i class="fas fa-inbox w-5 shrink-0"></i>
+                <span class="sidebar-text">Gestión de PQRs</span>
             </a>
-            <a href="#" onclick="switchTab('admin')" id="nav-admin" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
-                <i class="fas fa-users-cog w-5"></i> Administración
+            <a href="#" onclick="switchTab('admin'); return false;" id="nav-admin" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
+                <i class="fas fa-users-cog w-5 shrink-0"></i>
+                <span class="sidebar-text">Administración</span>
             </a>
         </nav>
         
         <div class="p-4 border-t border-blue-800">
             <div class="flex items-center gap-3">
-                <img src="https://ui-avatars.com/api/?name=Asesor+Activo&background=FF6B00&color=fff" alt="User" class="w-10 h-10 rounded-full border-2 border-white">
+                <img src="https://ui-avatars.com/api/?name=Asesor+Activo&background=FF6B00&color=fff" alt="User" class="w-10 h-10 rounded-full border-2 border-white shrink-0">
                 <div>
                     <p class="text-sm font-semibold">Asesor Activo</p>
                     <p class="text-xs text-blue-300">asesor@proyectiva.com</p>
@@ -84,10 +91,15 @@
     </aside>
 
     <!-- Main Content -->
-    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 relative">
+    <main id="main-content" class="flex-1 flex flex-col h-screen overflow-hidden bg-gray-50 relative transition-all duration-300" style="margin-left: 16rem;">
         <!-- Topbar -->
         <header class="h-16 bg-white shadow-sm flex items-center justify-between px-8 z-10">
-            <h2 class="text-xl font-semibold text-gray-700" id="header-title">Dashboard Ejecutivo</h2>
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="p-2 rounded-lg text-gray-500 hover:bg-gray-100 hover:text-proyectiva-blue transition-colors" id="sidebar-toggle-btn" title="Menú">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h2 class="text-xl font-semibold text-gray-700" id="header-title">Dashboard Ejecutivo</h2>
+            </div>
             <div class="flex items-center gap-4">
                 <button onclick="loadData()" class="p-2 text-gray-400 hover:text-proyectiva-orange transition-colors" title="Actualizar Datos">
                     <i class="fas fa-sync-alt" id="sync-icon"></i>
@@ -106,8 +118,7 @@
             <div id="view-dashboard" class="space-y-6">
                 <!-- KPIs -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <!-- Card 1 -->
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow">
+                    <div onclick="setKpiFilter(null)" class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-blue-500 hover:shadow-md transition-shadow cursor-pointer">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">Total PQRs</p>
@@ -116,8 +127,7 @@
                             <div class="p-3 bg-blue-50 rounded-lg text-blue-500"><i class="fas fa-layer-group text-xl"></i></div>
                         </div>
                     </div>
-                    <!-- Card 2 -->
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500 hover:shadow-md transition-shadow">
+                    <div onclick="setKpiFilter('proceso')" class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500 hover:shadow-md transition-shadow cursor-pointer">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">En Proceso</p>
@@ -126,8 +136,7 @@
                             <div class="p-3 bg-yellow-50 rounded-lg text-yellow-600"><i class="fas fa-clock text-xl"></i></div>
                         </div>
                     </div>
-                    <!-- Card 3 -->
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 hover:shadow-md transition-shadow">
+                    <div onclick="setKpiFilter('resueltas')" class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500 hover:shadow-md transition-shadow cursor-pointer">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">Resueltas</p>
@@ -136,8 +145,7 @@
                             <div class="p-3 bg-green-50 rounded-lg text-green-500"><i class="fas fa-check-circle text-xl"></i></div>
                         </div>
                     </div>
-                    <!-- Card 4 -->
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500 hover:shadow-md transition-shadow">
+                    <div onclick="setKpiFilter('vencidas')" class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500 hover:shadow-md transition-shadow cursor-pointer">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">SLA Vencido</p>
@@ -415,6 +423,8 @@
         let listUsuarios = [];
         let currentPQR = null;
         let chartInstance = null;
+        let filterKPI = null;
+        let sidebarCollapsed = false;
 
         // --- MOCK DE DATOS PARA PREVIEW (Simula lo que devuelve Apps Script) ---
         // En Apps Script real, usamos google.script.run
@@ -447,6 +457,36 @@
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
         });
+
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            const sidebar = document.getElementById('sidebar');
+            const main = document.getElementById('main-content');
+            if (sidebar) sidebar.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+            if (main) main.style.marginLeft = sidebarCollapsed ? '0' : '16rem';
+        }
+
+        function getFilteredData() {
+            let data = appData;
+            if (filterKPI === 'proceso') data = data.filter(p => p.estado === 'En Proceso');
+            else if (filterKPI === 'resueltas') data = data.filter(p => p.estado === 'Resuelto' || p.estado === 'Cerrado');
+            else if (filterKPI === 'vencidas') data = data.filter(p => p.estado !== 'Resuelto' && p.estado !== 'Cerrado' && (new Date() - new Date(p.fechaCreacion)) > (3 * 24 * 60 * 60 * 1000));
+            const term = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const estado = document.getElementById('filterEstado')?.value || '';
+            return data.filter(pqr => {
+                const matchTerm = !term || pqr.id.toLowerCase().includes(term) || (pqr.informacion?.solicitante?.nombreCompleto || '').toLowerCase().includes(term) || (pqr.informacion?.solicitante?.numeroDocumento || '').includes(term);
+                const matchEstado = !estado || pqr.estado === estado;
+                return matchTerm && matchEstado;
+            });
+        }
+
+        function setKpiFilter(k) {
+            filterKPI = k;
+            const filtered = getFilteredData();
+            renderTable(filtered);
+            renderRecentTable(filtered.slice(0, 5));
+            drawChart(filtered);
+        }
 
         // --- NAVEGACIÓN ---
         function switchTab(tabId) {
@@ -629,9 +669,10 @@
         // --- PROCESAMIENTO Y RENDERIZADO ---
         function processData() {
             renderKPIs();
-            renderTable(appData);
-            renderRecentTable(appData.slice(0, 5));
-            drawChart();
+            const filtered = getFilteredData();
+            renderTable(filtered);
+            renderRecentTable(filtered.slice(0, 5));
+            drawChart(filtered);
         }
 
         function renderKPIs() {
@@ -726,24 +767,18 @@
         }
 
         function filterTable() {
-            const term = document.getElementById('searchInput').value.toLowerCase();
-            const estado = document.getElementById('filterEstado').value;
-            
-            const filtered = appData.filter(pqr => {
-                const matchTerm = pqr.id.toLowerCase().includes(term) || 
-                                  (pqr.informacion.solicitante?.nombreCompleto || '').toLowerCase().includes(term) ||
-                                  (pqr.informacion.solicitante?.numeroDocumento || '').includes(term);
-                const matchEstado = estado === '' || pqr.estado === estado;
-                return matchTerm && matchEstado;
-            });
+            const filtered = getFilteredData();
             renderTable(filtered);
+            renderRecentTable(filtered.slice(0, 5));
+            drawChart(filtered);
         }
 
-        function drawChart() {
+        function drawChart(data) {
             const ctx = document.getElementById('typeChart').getContext('2d');
+            const source = Array.isArray(data) ? data : appData;
             
             const conteo = { 'QUEJA': 0, 'PETICION': 0, 'RECLAMO': 0 };
-            appData.forEach(p => {
+            source.forEach(p => {
                 const t = p.informacion.tramite?.tipoSolicitud || 'OTRO';
                 conteo[t] = (conteo[t] || 0) + 1;
             });
