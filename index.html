@@ -223,10 +223,54 @@
             <div id="view-admin" class="hidden space-y-6">
                 <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-orange">
                     <h3 class="text-lg font-bold text-proyectiva-blue mb-2"><i class="fas fa-users-cog text-proyectiva-orange mr-2"></i>Panel de Administración</h3>
-                    <p class="text-sm text-gray-500 mb-6">Gestión de usuarios y configuración del sistema.</p>
-                    <div class="bg-gray-50 p-6 rounded-lg border border-gray-100 text-center text-gray-500">
-                        <i class="fas fa-cog text-4xl mb-3 text-gray-300"></i>
-                        <p>Módulo de administración disponible.</p>
+                    <p class="text-sm text-gray-500 mb-6">Gestión de usuarios de la tabla Gestion y asignación de solicitudes.</p>
+
+                    <!-- 1. Asignar gestiones sin asignar -->
+                    <div class="mb-8">
+                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-user-plus text-proyectiva-orange"></i> Asignar solicitudes sin asignar</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead><tr class="text-xs text-gray-500 uppercase border-b"><th class="py-2 text-left">ID</th><th class="py-2 text-left">Solicitante</th><th class="py-2 text-left">Asignar a</th><th class="py-2 text-left">Acción</th></tr></thead>
+                                <tbody id="admin-sinasignar-body"></tbody>
+                            </table>
+                            <p id="admin-sinasignar-empty" class="text-gray-500 text-sm py-4 text-center hidden">No hay solicitudes sin asignar.</p>
+                        </div>
+                    </div>
+
+                    <!-- 2. Reasignar solicitudes ya asignadas -->
+                    <div class="mb-8">
+                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-exchange-alt text-proyectiva-orange"></i> Reasignar solicitudes</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead><tr class="text-xs text-gray-500 uppercase border-b"><th class="py-2 text-left">ID</th><th class="py-2 text-left">Solicitante</th><th class="py-2 text-left">Asignado a</th><th class="py-2 text-left">Reasignar a</th><th class="py-2 text-left">Acción</th></tr></thead>
+                                <tbody id="admin-asignadas-body"></tbody>
+                            </table>
+                            <p id="admin-asignadas-empty" class="text-gray-500 text-sm py-4 text-center hidden">No hay solicitudes asignadas.</p>
+                        </div>
+                    </div>
+
+                    <!-- 3. Crear nuevo usuario -->
+                    <div class="mb-8">
+                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-user-plus text-proyectiva-orange"></i> Crear nuevo usuario</h4>
+                        <form id="formCrearUsuario" onsubmit="crearUsuario(event)" class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
+                            <input type="text" id="admin-nombre" required placeholder="Nombre completo" class="border rounded-lg px-3 py-2 text-sm">
+                            <input type="email" id="admin-correo" required placeholder="Correo" class="border rounded-lg px-3 py-2 text-sm">
+                            <select id="admin-seguro" class="border rounded-lg px-3 py-2 text-sm bg-white"><option value="pqr">PQR</option><option value="admin">Admin</option></select>
+                            <input type="text" id="admin-novedad" placeholder="Novedad" class="border rounded-lg px-3 py-2 text-sm">
+                            <button type="submit" class="bg-proyectiva-orange text-white rounded-lg px-4 py-2 text-sm font-bold hover:bg-orange-600">Crear</button>
+                        </form>
+                    </div>
+
+                    <!-- 4. Novedades a usuarios -->
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-sticky-note text-proyectiva-orange"></i> Novedades por usuario</h4>
+                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 overflow-x-auto">
+                            <table class="w-full text-sm">
+                                <thead><tr class="text-xs text-gray-500 uppercase border-b"><th class="py-2 text-left">Nombre</th><th class="py-2 text-left">Correo</th><th class="py-2 text-left">Seguro</th><th class="py-2 text-left">Novedad actual</th><th class="py-2 text-left">Nueva novedad</th><th class="py-2 text-left">Guardar</th></tr></thead>
+                                <tbody id="admin-novedades-body"></tbody>
+                            </table>
+                            <p id="admin-novedades-empty" class="text-gray-500 text-sm py-4 text-center hidden">Cargando usuarios...</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -368,6 +412,7 @@
     <script>
         // ESTADO GLOBAL
         let appData = [];
+        let listUsuarios = [];
         let currentPQR = null;
         let chartInstance = null;
 
@@ -422,8 +467,126 @@
             const viewEl = document.getElementById(`view-${tabId}`);
             if (viewEl) viewEl.classList.remove('hidden');
 
+            if (tabId === 'admin') renderAdminTab();
+
             const titles = { dashboard: 'Dashboard Ejecutivo', pqrs: 'Gestión Integral de PQRs', admin: 'Panel de Administración' };
             document.getElementById('header-title').innerText = titles[tabId] || 'Proyectiva';
+        }
+
+        // --- ADMIN: Renderizar y acciones ---
+        function renderAdminTab() {
+            const sinAsignar = appData.filter(p => !p.asesor || p.asesor === 'Sin Asignar' || p.asesor === '');
+            const asignadas = appData.filter(p => p.asesor && p.asesor !== 'Sin Asignar');
+
+            const tbody1 = document.getElementById('admin-sinasignar-body');
+            const empty1 = document.getElementById('admin-sinasignar-empty');
+            const tbody2 = document.getElementById('admin-asignadas-body');
+            const empty2 = document.getElementById('admin-asignadas-empty');
+            const tbody3 = document.getElementById('admin-novedades-body');
+            const empty3 = document.getElementById('admin-novedades-empty');
+
+            if (tbody1) {
+                tbody1.innerHTML = '';
+                if (empty1) empty1.classList.toggle('hidden', sinAsignar.length > 0);
+                sinAsignar.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-gray-100';
+                    tr.innerHTML = `
+                        <td class="py-2 font-bold text-proyectiva-blue">${p.id}</td>
+                        <td class="py-2">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
+                        <td class="py-2"><select class="admin-asignar-select border rounded px-2 py-1 text-xs w-full max-w-[200px]" data-row="${p.rowNumber}"><option value="">Seleccionar...</option>${(listUsuarios || []).map(u => `<option value="${u.correo}">${u.nombre}</option>`).join('')}</select></td>
+                        <td class="py-2"><button onclick="asignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-blue text-white px-2 py-1 rounded text-xs">Asignar</button></td>
+                    `;
+                    tbody1.appendChild(tr);
+                });
+            }
+
+            if (tbody2) {
+                tbody2.innerHTML = '';
+                if (empty2) empty2.classList.toggle('hidden', asignadas.length > 0);
+                asignadas.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-gray-100';
+                    tr.innerHTML = `
+                        <td class="py-2 font-bold text-proyectiva-blue">${p.id}</td>
+                        <td class="py-2">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
+                        <td class="py-2 text-xs">${p.asesor}</td>
+                        <td class="py-2"><select class="admin-reasignar-select border rounded px-2 py-1 text-xs w-full max-w-[200px]" data-row="${p.rowNumber}">${(listUsuarios || []).map(u => `<option value="${u.correo}" ${u.correo === p.asesor ? 'selected' : ''}>${u.nombre}</option>`).join('')}</select></td>
+                        <td class="py-2"><button onclick="reasignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-orange text-white px-2 py-1 rounded text-xs">Reasignar</button></td>
+                    `;
+                    tbody2.appendChild(tr);
+                });
+            }
+
+            if (tbody3) {
+                tbody3.innerHTML = '';
+                if (empty3) empty3.classList.toggle('hidden', listUsuarios.length > 0);
+                listUsuarios.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-gray-100';
+                    tr.innerHTML = `
+                        <td class="py-2">${u.nombre}</td>
+                        <td class="py-2 text-xs">${u.correo}</td>
+                        <td class="py-2">${u.seguro || '-'}</td>
+                        <td class="py-2 text-xs text-gray-600">${u.novedad || '-'}</td>
+                        <td class="py-2"><input type="text" class="admin-novedad-input border rounded px-2 py-1 text-xs w-full" placeholder="Nueva novedad" data-correo="${u.correo}" value="${u.novedad || ''}"></td>
+                        <td class="py-2"><button onclick="guardarNovedadAdmin(this)" data-correo="${(u.correo || '').replace(/"/g, '&quot;')}" class="bg-green-600 text-white px-2 py-1 rounded text-xs">Guardar</button></td>
+                    `;
+                    tbody3.appendChild(tr);
+                });
+            }
+        }
+
+        function asignarPQRAdmin(rowNumber, btn) {
+            const row = btn.closest('tr');
+            const select = row?.querySelector('.admin-asignar-select');
+            const asesor = select?.value?.trim();
+            if (!asesor) { Swal.fire('Aviso', 'Seleccione un usuario.', 'warning'); return; }
+            const pqr = appData.find(p => p.rowNumber === rowNumber);
+            if (!pqr) return;
+            const payload = { ...pqr, estadoAnterior: pqr.estado, estado: pqr.estado, asesor, nuevaAccionTexto: 'Asignación desde panel admin' };
+            if (isAppsScript) {
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(e => { showError('Error', e); btn.disabled = false; }).updatePQR(JSON.stringify(payload));
+            }
+        }
+
+        function reasignarPQRAdmin(rowNumber, btn) {
+            const row = btn.closest('tr');
+            const select = row.querySelector('.admin-reasignar-select');
+            const asesor = select?.value;
+            if (!asesor) return;
+            const pqr = appData.find(p => p.rowNumber === rowNumber);
+            if (!pqr) return;
+            const payload = { ...pqr, estadoAnterior: pqr.estado, estado: pqr.estado, asesor, nuevaAccionTexto: 'Reasignación desde panel admin' };
+            if (isAppsScript) {
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(e => { showError('Error', e); btn.disabled = false; }).updatePQR(JSON.stringify(payload));
+            }
+        }
+
+        function guardarNovedadAdmin(btn) {
+            const correo = btn.getAttribute('data-correo') || '';
+            const row = btn.closest('tr');
+            const input = row?.querySelector('.admin-novedad-input');
+            const novedad = input?.value || '';
+            if (isAppsScript && correo) {
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(e => { showError('Error', e); btn.disabled = false; }).updateUsuarioNovedad(correo, novedad);
+            }
+        }
+
+        function crearUsuario(e) {
+            e.preventDefault();
+            const payload = { nombre: document.getElementById('admin-nombre').value, correo: document.getElementById('admin-correo').value, seguro: document.getElementById('admin-seguro').value, novedad: document.getElementById('admin-novedad').value };
+            if (isAppsScript) {
+                const btn = e.target.querySelector('button[type="submit"]');
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); e.target.reset(); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(err => { showError('Error', err); btn.disabled = false; }).createUsuario(payload);
+            } else {
+                Swal.fire('Preview', 'En producción se crearía el usuario.', 'info');
+                e.target.reset();
+            }
         }
 
         // --- CARGA DE DATOS ---
@@ -432,32 +595,35 @@
             syncIcon.classList.add('animate-spin');
 
             if (isAppsScript) {
-                // Entorno Producción: Llamar a Code.gs
-                google.script.run
-                    .withSuccessHandler(response => {
-                        const res = JSON.parse(response);
-                        if(res.status === 'success') {
-                            appData = res.data;
-                            processData();
-                            syncIcon.classList.remove('animate-spin');
-                        } else {
-                            showError("Error al cargar datos", res.message);
-                            syncIcon.classList.remove('animate-spin');
-                        }
-                    })
-                    .withFailureHandler(error => {
-                        showError("Error de conexión", error);
-                        syncIcon.classList.remove('animate-spin');
-                    })
-                    .getPQRs();
+                Promise.all([
+                    new Promise((ok, err) => google.script.run.withSuccessHandler(ok).withFailureHandler(err).getPQRs()),
+                    new Promise((ok, err) => google.script.run.withSuccessHandler(ok).withFailureHandler(err).getUsuariosGestion())
+                ]).then(([pqrRes, userRes]) => {
+                    const pqr = JSON.parse(pqrRes);
+                    const usr = JSON.parse(userRes);
+                    if (pqr.status === 'success') appData = pqr.data || [];
+                    if (usr.status === 'success') listUsuarios = usr.data || [];
+                    processData();
+                    populateAsesoresSelect();
+                    if (document.getElementById('view-admin') && !document.getElementById('view-admin').classList.contains('hidden')) renderAdminTab();
+                    syncIcon.classList.remove('animate-spin');
+                }).catch(e => { showError("Error de conexión", e); syncIcon.classList.remove('animate-spin'); });
             } else {
-                // Entorno Local/Preview: Usar Mock
+                listUsuarios = [{ nombre: 'María Gaitán', correo: 'maria.gaitan@proyectivaseguros.com', novedad: '' }, { nombre: 'Carlos Zamora', correo: 'carlos.zamora@proyectivaseguros.com', novedad: '' }];
                 setTimeout(() => {
                     appData = [...mockData];
                     processData();
+                    populateAsesoresSelect();
                     syncIcon.classList.remove('animate-spin');
                 }, 800);
             }
+        }
+
+        function populateAsesoresSelect() {
+            const sel = document.getElementById('inp-asesor');
+            if (!sel) return;
+            sel.innerHTML = '<option value="Sin Asignar">Sin Asignar</option>';
+            listUsuarios.forEach(u => sel.innerHTML += `<option value="${u.correo}">${u.nombre} (${u.correo})</option>`);
         }
 
         // --- PROCESAMIENTO Y RENDERIZADO ---
