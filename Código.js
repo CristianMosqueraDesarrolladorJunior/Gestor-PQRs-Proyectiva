@@ -3,7 +3,7 @@
  * Copia este código en el archivo Code.gs de tu proyecto de Apps Script
  */
 
-const SHEET_ID = 'TU_ID_DE_LA_HOJA_DE_CALCULO'; // Reemplaza con el ID de tu Sheet
+const SHEET_ID = '1_Hi5iunWuSrsT4V2ApWKIka6sdYyz7Mo_atSrz_uxhc'; // Reemplaza con el ID de tu Sheet
 const SHEET_NAME = 'PQRs';
 
 // 1. Servir la aplicación Web

@@ -67,7 +67,7 @@
             <a href="#" onclick="switchTab('pqrs')" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors" id="nav-pqrs">
                 <i class="fas fa-inbox w-5"></i> Gestión de PQRs
             </a>
-            <a href="#" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
+            <a href="#" onclick="switchTab('admin')" id="nav-admin" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
                 <i class="fas fa-users-cog w-5"></i> Administración
             </a>
         </nav>
@@ -216,6 +216,18 @@
                             <!-- Filas generadas dinámicamente -->
                         </tbody>
                     </table>
+                </div>
+            </div>
+
+            <!-- VISTA: ADMINISTRACIÓN -->
+            <div id="view-admin" class="hidden space-y-6">
+                <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-orange">
+                    <h3 class="text-lg font-bold text-proyectiva-blue mb-2"><i class="fas fa-users-cog text-proyectiva-orange mr-2"></i>Panel de Administración</h3>
+                    <p class="text-sm text-gray-500 mb-6">Gestión de usuarios y configuración del sistema.</p>
+                    <div class="bg-gray-50 p-6 rounded-lg border border-gray-100 text-center text-gray-500">
+                        <i class="fas fa-cog text-4xl mb-3 text-gray-300"></i>
+                        <p>Módulo de administración disponible.</p>
+                    </div>
                 </div>
             </div>
 
@@ -393,21 +405,25 @@
 
         // --- NAVEGACIÓN ---
         function switchTab(tabId) {
-            // UI classes
             document.querySelectorAll('aside nav a').forEach(a => {
                 a.classList.remove('bg-blue-800', 'text-white');
                 a.classList.add('text-blue-200');
             });
-            document.getElementById(`nav-${tabId}`).classList.add('bg-blue-800', 'text-white');
-            document.getElementById(`nav-${tabId}`).classList.remove('text-blue-200');
+            const navEl = document.getElementById(`nav-${tabId}`);
+            if (navEl) {
+                navEl.classList.add('bg-blue-800', 'text-white');
+                navEl.classList.remove('text-blue-200');
+            }
 
-            // Views
             document.getElementById('view-dashboard').classList.add('hidden');
             document.getElementById('view-pqrs').classList.add('hidden');
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            const viewAdmin = document.getElementById('view-admin');
+            if (viewAdmin) viewAdmin.classList.add('hidden');
+            const viewEl = document.getElementById(`view-${tabId}`);
+            if (viewEl) viewEl.classList.remove('hidden');
 
-            // Header title
-            document.getElementById('header-title').innerText = tabId === 'dashboard' ? 'Dashboard Ejecutivo' : 'Gestión Integral de PQRs';
+            const titles = { dashboard: 'Dashboard Ejecutivo', pqrs: 'Gestión Integral de PQRs', admin: 'Panel de Administración' };
+            document.getElementById('header-title').innerText = titles[tabId] || 'Proyectiva';
         }
 
         // --- CARGA DE DATOS ---
