@@ -3,8 +3,11 @@
  */
 
 const SHEET_ID = '1_Hi5iunWuSrsT4V2ApWKIka6sdYyz7Mo_atSrz_uxhc';
-const SHEET_NAME = 'PQRs';
-const SHEET_GESTION = 'Gestion';
+const SHEET_PQR = SpreadsheetApp.openById(SHEET_ID).getSheetByName('PQRs');
+const SHEET_GESTION = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Gestion');
+const correoActivo = Session.getActiveUser().getEmail();
+
+
 
 // 1. Servir la aplicación Web
 function doGet(e) {
@@ -18,18 +21,45 @@ function doGet(e) {
 
 // 2. Obtener todas las PQRs (Read)
 function getPQRs() {
-  try {
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
-    const data = sheet.getDataRange().getValues();
+  const validarUsuario = SHEET_GESTION.getRange("C2:C").createTextFinder(correoActivo).matchEntireCell(true).ignoreDiacritics(true).findNext();
+
+  if (!validarUsuario) {
+    return JSON.stringify({ status: 'error', message: 'Usuario no autorizado para acceder a los PQRs.' });
+  }
+
+  const filaUsuario = validarUsuario.getRow();
+  const expertise = SHEET_GESTION.getRange(filaUsuario, 4).getDisplayValue();
+  const nombreAnalista = SHEET_GESTION.getRange(filaUsuario, 2).getDisplayValue();
+  const novedad = SHEET_GESTION.getRange(filaUsuario, 5).getDisplayValue();
+
+  let dataFront = [];
+  
+  switch (expertise) {
+    case 'pqr':
+      dataFront = getPQRsDataForPQR();
+      break;
+    case 'admin':
+      dataFront = getPQRsDataForAdmin();
+      break;
+    default:
+      return JSON.stringify({ status: 'error', message: 'Usuario sin rol definido para acceder a los PQRs.' });
+  }
+  return dataFront;
+}
+
+function getPQRsDataForPQR() {
+    try {
+    const data = SHEET_PQR.getDataRange().getValues();
+    let dataFiltrada =data.filter(row => row[6] && row[6].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase());
     const headers = data.shift(); // Remover cabeceras
-    
-    let pqrs = data.map((row, index) => {
+
+    let pqrs = dataFiltrada.map((row, index) => {
       let infoJSON = {};
       let historialJSON = [];
-      
-      try { infoJSON = JSON.parse(row[3] || '{}'); } catch(e) {}
-      try { historialJSON = JSON.parse(row[9] || '[]'); } catch(e) {}
-      
+
+      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
+      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
+
       return {
         rowNumber: index + 2, // Para actualizar la fila exacta luego
         id: row[0],
@@ -45,22 +75,58 @@ function getPQRs() {
         sla: row[10] || ''
       };
     });
-    
+
     // Ordenar por fecha (más recientes primero)
     pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-    
     return JSON.stringify({ status: 'success', data: pqrs });
   } catch (error) {
     return JSON.stringify({ status: 'error', message: error.toString() });
   }
 }
 
+function getPQRsDataForAdmin() {
+    try {
+    const data = SHEET_PQR.getDataRange().getValues();
+    const headers = data.shift(); // Remover cabeceras
+
+    let pqrs = data.map((row, index) => {
+      let infoJSON = {};
+      let historialJSON = [];
+
+      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
+      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
+
+      return {
+        rowNumber: index + 2, // Para actualizar la fila exacta luego
+        id: row[0],
+        tipo: row[1],
+        fechaCreacion: row[2],
+        informacion: infoJSON,
+        estado: row[4] || 'Pendiente',
+        prioridad: row[5] || 'Media',
+        asesor: row[6] || 'Sin Asignar',
+        fechaAsignacion: row[7] || '',
+        fechaCierre: row[8] || '',
+        historial: historialJSON,
+        sla: row[10] || ''
+      };
+    });
+
+    // Ordenar por fecha (más recientes primero)
+    pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+    return JSON.stringify({ status: 'success', data: pqrs });
+  } catch (error) {
+    return JSON.stringify({ status: 'error', message: error.toString() });
+  }
+}
+
+
 // 3. Actualizar una PQR (Update / Gestión)
 function updatePQR(pqrDataStr) {
   try {
     const pqrData = JSON.parse(pqrDataStr);
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_NAME);
-    
+    const sheet = SHEET_PQR
+
     // Preparar el nuevo registro para el historial
     const nuevaAccion = {
       fecha: new Date().toISOString(),
@@ -69,33 +135,33 @@ function updatePQR(pqrDataStr) {
       estadoAnterior: pqrData.estadoAnterior,
       estadoNuevo: pqrData.estado
     };
-    
+
     // Agregar al historial existente
     const historial = Array.isArray(pqrData.historial) ? pqrData.historial : [];
     historial.unshift(nuevaAccion);
     pqrData.historial = historial;
-    
+
     // Actualizar la hoja (columnas 5 a 10 según el modelo)
     // Estado (E), Prioridad (F), Asesor (G), Fecha Asignación (H), Fecha Cierre (I), Historial (J)
     sheet.getRange(pqrData.rowNumber, 5).setValue(pqrData.estado);
     sheet.getRange(pqrData.rowNumber, 6).setValue(pqrData.prioridad);
-    
+
     // Si se asignó un asesor y antes no tenía
     if (pqrData.asesor !== 'Sin Asignar') {
       sheet.getRange(pqrData.rowNumber, 7).setValue(pqrData.asesor);
-      if(!pqrData.fechaAsignacion) {
+      if (!pqrData.fechaAsignacion) {
         sheet.getRange(pqrData.rowNumber, 8).setValue(new Date().toISOString());
       }
     }
-    
+
     // Si se cerró la PQR
     if (pqrData.estado === 'Cerrado' || pqrData.estado === 'Resuelto') {
       sheet.getRange(pqrData.rowNumber, 9).setValue(new Date().toISOString());
     }
-    
+
     // Guardar historial en JSON
     sheet.getRange(pqrData.rowNumber, 10).setValue(JSON.stringify(pqrData.historial));
-    
+
     return JSON.stringify({ status: 'success', message: 'PQR actualizada exitosamente.' });
   } catch (error) {
     return JSON.stringify({ status: 'error', message: error.toString() });
@@ -105,8 +171,7 @@ function updatePQR(pqrDataStr) {
 // 4. Obtener usuarios de la hoja Gestion (para asignación y admin)
 function getUsuariosGestion() {
   try {
-    const ss = SpreadsheetApp.openById(SHEET_ID);
-    const sheet = ss.getSheetByName(SHEET_GESTION);
+    const sheet = SHEET_GESTION
     if (!sheet) return JSON.stringify({ status: 'success', data: [] });
     const data = sheet.getDataRange().getValues();
     const usuarios = [];
@@ -132,7 +197,7 @@ function getUsuariosGestion() {
 function createUsuario(userData) {
   try {
     if (typeof userData === 'string') userData = JSON.parse(userData);
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_GESTION);
+    const sheet = SHEET_GESTION;
     if (!sheet) return JSON.stringify({ status: 'error', message: 'No existe la hoja Gestion.' });
     const data = sheet.getDataRange().getValues();
     const email = (userData.correo || '').toString().trim().toLowerCase();
@@ -159,7 +224,7 @@ function createUsuario(userData) {
 // 6. Actualizar novedad de un usuario
 function updateUsuarioNovedad(correo, novedad) {
   try {
-    const sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(SHEET_GESTION);
+    const sheet = SHEET_GESTION
     if (!sheet) return JSON.stringify({ status: 'error', message: 'No existe la hoja Gestion.' });
     const data = sheet.getDataRange().getValues();
     const email = (correo || '').toString().trim().toLowerCase();
