@@ -229,56 +229,128 @@
 
             <!-- VISTA: ADMINISTRACIÓN -->
             <div id="view-admin" class="hidden space-y-6">
-                <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-orange">
-                    <h3 class="text-lg font-bold text-proyectiva-blue mb-2"><i class="fas fa-users-cog text-proyectiva-orange mr-2"></i>Panel de Administración</h3>
-                    <p class="text-sm text-gray-500 mb-6">Gestión de usuarios de la tabla Gestion y asignación de solicitudes.</p>
-
-                    <!-- 1. Asignar gestiones sin asignar -->
-                    <div class="mb-8">
-                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-user-plus text-proyectiva-orange"></i> Asignar solicitudes sin asignar</h4>
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead><tr class="text-xs text-gray-500 uppercase border-b"><th class="py-2 text-left">ID</th><th class="py-2 text-left">Solicitante</th><th class="py-2 text-left">Asignar a</th><th class="py-2 text-left">Acción</th></tr></thead>
-                                <tbody id="admin-sinasignar-body"></tbody>
-                            </table>
-                            <p id="admin-sinasignar-empty" class="text-gray-500 text-sm py-4 text-center hidden">No hay solicitudes sin asignar.</p>
+                <!-- KPIs Admin -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-orange">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Sin asignar</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1" id="admin-kpi-sinasignar">0</p>
+                            </div>
+                            <div class="p-3 bg-orange-50 rounded-lg text-proyectiva-orange"><i class="fas fa-user-clock text-xl"></i></div>
                         </div>
                     </div>
-
-                    <!-- 2. Reasignar solicitudes ya asignadas -->
-                    <div class="mb-8">
-                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-exchange-alt text-proyectiva-orange"></i> Reasignar solicitudes</h4>
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead><tr class="text-xs text-gray-500 uppercase border-b"><th class="py-2 text-left">ID</th><th class="py-2 text-left">Solicitante</th><th class="py-2 text-left">Asignado a</th><th class="py-2 text-left">Reasignar a</th><th class="py-2 text-left">Acción</th></tr></thead>
-                                <tbody id="admin-asignadas-body"></tbody>
-                            </table>
-                            <p id="admin-asignadas-empty" class="text-gray-500 text-sm py-4 text-center hidden">No hay solicitudes asignadas.</p>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-blue">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Asignadas</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1" id="admin-kpi-asignadas">0</p>
+                            </div>
+                            <div class="p-3 bg-blue-50 rounded-lg text-proyectiva-blue"><i class="fas fa-user-check text-xl"></i></div>
                         </div>
                     </div>
-
-                    <!-- 3. Crear nuevo usuario -->
-                    <div class="mb-8">
-                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-user-plus text-proyectiva-orange"></i> Crear nuevo usuario</h4>
-                        <form id="formCrearUsuario" onsubmit="crearUsuario(event)" class="grid grid-cols-1 md:grid-cols-5 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100">
-                            <input type="text" id="admin-nombre" required placeholder="Nombre completo" class="border rounded-lg px-3 py-2 text-sm">
-                            <input type="email" id="admin-correo" required placeholder="Correo" class="border rounded-lg px-3 py-2 text-sm">
-                            <select id="admin-seguro" class="border rounded-lg px-3 py-2 text-sm bg-white"><option value="pqr">PQR</option><option value="admin">Admin</option></select>
-                            <input type="text" id="admin-novedad" placeholder="Novedad" class="border rounded-lg px-3 py-2 text-sm">
-                            <button type="submit" class="bg-proyectiva-orange text-white rounded-lg px-4 py-2 text-sm font-bold hover:bg-orange-600">Crear</button>
-                        </form>
-                    </div>
-
-                    <!-- 4. Novedades a usuarios -->
-                    <div>
-                        <h4 class="text-sm font-bold text-gray-700 uppercase mb-3 flex items-center gap-2"><i class="fas fa-sticky-note text-proyectiva-orange"></i> Novedades por usuario</h4>
-                        <div class="bg-gray-50 rounded-lg p-4 border border-gray-100 overflow-x-auto">
-                            <table class="w-full text-sm">
-                                <thead><tr class="text-xs text-gray-500 uppercase border-b"><th class="py-2 text-left">Nombre</th><th class="py-2 text-left">Correo</th><th class="py-2 text-left">Seguro</th><th class="py-2 text-left">Novedad actual</th><th class="py-2 text-left">Nueva novedad</th><th class="py-2 text-left">Guardar</th></tr></thead>
-                                <tbody id="admin-novedades-body"></tbody>
-                            </table>
-                            <p id="admin-novedades-empty" class="text-gray-500 text-sm py-4 text-center hidden">Cargando usuarios...</p>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-blue">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Usuarios</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1" id="admin-kpi-usuarios">0</p>
+                            </div>
+                            <div class="p-3 bg-proyectiva-light rounded-lg text-proyectiva-blue"><i class="fas fa-users text-xl"></i></div>
                         </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">En proceso</p>
+                                <p class="text-3xl font-bold text-gray-800 mt-1" id="admin-kpi-proceso">0</p>
+                            </div>
+                            <div class="p-3 bg-yellow-50 rounded-lg text-yellow-600"><i class="fas fa-spinner text-xl"></i></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 1. Asignar gestiones sin asignar -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-user-plus text-proyectiva-orange"></i> PQRs pendientes de asignación</h4>
+                        <p class="text-sm text-gray-500 mt-1">Asigne un asesor a las solicitudes sin responsable</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr class="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th class="px-6 py-4 text-left">Radicado</th>
+                                    <th class="px-6 py-4 text-left">Solicitante</th>
+                                    <th class="px-6 py-4 text-left">Estado</th>
+                                    <th class="px-6 py-4 text-left">Asignar a asesor</th>
+                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-sinasignar-body" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                        <p id="admin-sinasignar-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay solicitudes sin asignar.</p>
+                    </div>
+                </div>
+
+                <!-- 2. Reasignar solicitudes -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-exchange-alt text-proyectiva-orange"></i> Reasignar PQRs</h4>
+                        <p class="text-sm text-gray-500 mt-1">Cambie el asesor responsable de solicitudes ya asignadas</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr class="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th class="px-6 py-4 text-left">Radicado</th>
+                                    <th class="px-6 py-4 text-left">Solicitante</th>
+                                    <th class="px-6 py-4 text-left">Asesor actual</th>
+                                    <th class="px-6 py-4 text-left">Reasignar a</th>
+                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-asignadas-body" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                        <p id="admin-asignadas-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay solicitudes asignadas.</p>
+                    </div>
+                </div>
+
+                <!-- 3. Crear usuario -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-user-plus text-proyectiva-orange"></i> Registrar nuevo usuario</h4>
+                        <p class="text-sm text-gray-500 mt-1">Agregue asesores al sistema de gestión</p>
+                    </div>
+                    <form id="formCrearUsuario" onsubmit="crearUsuario(event)" class="p-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+                        <input type="text" id="admin-nombre" required placeholder="Nombre completo" class="border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-proyectiva-orange focus:border-proyectiva-blue">
+                        <input type="email" id="admin-correo" required placeholder="Correo electrónico" class="border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-proyectiva-orange focus:border-proyectiva-blue">
+                        <select id="admin-seguro" class="border border-gray-300 rounded-lg px-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-proyectiva-orange"><option value="pqr">PQR</option><option value="admin">Admin</option></select>
+                        <input type="text" id="admin-novedad" placeholder="Novedad" class="border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-proyectiva-orange">
+                        <button type="submit" class="bg-proyectiva-orange hover:bg-orange-600 text-white rounded-lg px-4 py-2.5 text-sm font-bold transition-colors flex items-center justify-center gap-2"><i class="fas fa-plus"></i> Crear</button>
+                    </form>
+                </div>
+
+                <!-- 4. Novedades -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-sticky-note text-proyectiva-orange"></i> Novedades por usuario</h4>
+                        <p class="text-sm text-gray-500 mt-1">Actualice el estado o novedades de cada asesor</p>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr class="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                    <th class="px-6 py-4 text-left">Nombre del asesor</th>
+                                    <th class="px-6 py-4 text-left">Correo</th>
+                                    <th class="px-6 py-4 text-left">Rol</th>
+                                    <th class="px-6 py-4 text-left">Novedad actual</th>
+                                    <th class="px-6 py-4 text-left">Actualizar novedad</th>
+                                    <th class="px-6 py-4 text-center">Guardar</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-novedades-body" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                        <p id="admin-novedades-empty" class="text-gray-500 text-sm py-8 text-center hidden">Cargando usuarios...</p>
                     </div>
                 </div>
             </div>
@@ -517,6 +589,12 @@
         function renderAdminTab() {
             const sinAsignar = appData.filter(p => !p.asesor || p.asesor === 'Sin Asignar' || p.asesor === '');
             const asignadas = appData.filter(p => p.asesor && p.asesor !== 'Sin Asignar');
+            const enProceso = appData.filter(p => p.estado === 'En Proceso');
+
+            document.getElementById('admin-kpi-sinasignar').innerText = sinAsignar.length;
+            document.getElementById('admin-kpi-asignadas').innerText = asignadas.length;
+            document.getElementById('admin-kpi-usuarios').innerText = listUsuarios.length;
+            document.getElementById('admin-kpi-proceso').innerText = enProceso.length;
 
             const tbody1 = document.getElementById('admin-sinasignar-body');
             const empty1 = document.getElementById('admin-sinasignar-empty');
@@ -530,12 +608,16 @@
                 if (empty1) empty1.classList.toggle('hidden', sinAsignar.length > 0);
                 sinAsignar.forEach(p => {
                     const tr = document.createElement('tr');
-                    tr.className = 'border-b border-gray-100';
+                    tr.className = 'hover:bg-gray-50 transition-colors';
                     tr.innerHTML = `
-                        <td class="py-2 font-bold text-proyectiva-blue">${p.id}</td>
-                        <td class="py-2">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
-                        <td class="py-2"><select class="admin-asignar-select border rounded px-2 py-1 text-xs w-full max-w-[200px]" data-row="${p.rowNumber}"><option value="">Seleccionar...</option>${(listUsuarios || []).map(u => `<option value="${u.correo}">${u.nombre}</option>`).join('')}</select></td>
-                        <td class="py-2"><button onclick="asignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-blue text-white px-2 py-1 rounded text-xs">Asignar</button></td>
+                        <td class="px-6 py-4 font-semibold text-proyectiva-blue">${p.id}</td>
+                        <td class="px-6 py-4 text-gray-800">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
+                        <td class="px-6 py-4">${getStatusBadge(p.estado)}</td>
+                        <td class="px-6 py-4"><select class="admin-asignar-select border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-[220px] focus:ring-2 focus:ring-proyectiva-orange" data-row="${p.rowNumber}"><option value="">Seleccionar asesor...</option>${(listUsuarios || []).map(u => `<option value="${u.correo}">${u.nombre}</option>`).join('')}</select></td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="openModalByRow(${p.rowNumber})" class="text-proyectiva-blue hover:text-proyectiva-orange font-medium text-sm mr-2" title="Gestionar">Gestionar</button>
+                            <button onclick="asignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">Asignar</button>
+                        </td>
                     `;
                     tbody1.appendChild(tr);
                 });
@@ -546,13 +628,16 @@
                 if (empty2) empty2.classList.toggle('hidden', asignadas.length > 0);
                 asignadas.forEach(p => {
                     const tr = document.createElement('tr');
-                    tr.className = 'border-b border-gray-100';
+                    tr.className = 'hover:bg-gray-50 transition-colors';
                     tr.innerHTML = `
-                        <td class="py-2 font-bold text-proyectiva-blue">${p.id}</td>
-                        <td class="py-2">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
-                        <td class="py-2 text-xs">${p.asesor}</td>
-                        <td class="py-2"><select class="admin-reasignar-select border rounded px-2 py-1 text-xs w-full max-w-[200px]" data-row="${p.rowNumber}">${(listUsuarios || []).map(u => `<option value="${u.correo}" ${u.correo === p.asesor ? 'selected' : ''}>${u.nombre}</option>`).join('')}</select></td>
-                        <td class="py-2"><button onclick="reasignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-orange text-white px-2 py-1 rounded text-xs">Reasignar</button></td>
+                        <td class="px-6 py-4 font-semibold text-proyectiva-blue">${p.id}</td>
+                        <td class="px-6 py-4 text-gray-800">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${p.asesor}</td>
+                        <td class="px-6 py-4"><select class="admin-reasignar-select border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-[220px] focus:ring-2 focus:ring-proyectiva-orange" data-row="${p.rowNumber}">${(listUsuarios || []).map(u => `<option value="${u.correo}" ${u.correo === p.asesor ? 'selected' : ''}>${u.nombre}</option>`).join('')}</select></td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="openModalByRow(${p.rowNumber})" class="text-proyectiva-blue hover:text-proyectiva-orange font-medium text-sm mr-2" title="Gestionar">Gestionar</button>
+                            <button onclick="reasignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-orange hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">Reasignar</button>
+                        </td>
                     `;
                     tbody2.appendChild(tr);
                 });
@@ -563,14 +648,14 @@
                 if (empty3) empty3.classList.toggle('hidden', listUsuarios.length > 0);
                 listUsuarios.forEach(u => {
                     const tr = document.createElement('tr');
-                    tr.className = 'border-b border-gray-100';
+                    tr.className = 'hover:bg-gray-50 transition-colors';
                     tr.innerHTML = `
-                        <td class="py-2">${u.nombre}</td>
-                        <td class="py-2 text-xs">${u.correo}</td>
-                        <td class="py-2">${u.seguro || '-'}</td>
-                        <td class="py-2 text-xs text-gray-600">${u.novedad || '-'}</td>
-                        <td class="py-2"><input type="text" class="admin-novedad-input border rounded px-2 py-1 text-xs w-full" placeholder="Nueva novedad" data-correo="${u.correo}" value="${u.novedad || ''}"></td>
-                        <td class="py-2"><button onclick="guardarNovedadAdmin(this)" data-correo="${(u.correo || '').replace(/"/g, '&quot;')}" class="bg-green-600 text-white px-2 py-1 rounded text-xs">Guardar</button></td>
+                        <td class="px-6 py-4 font-medium text-gray-800">${u.nombre}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${u.correo}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-1 text-xs font-medium rounded ${u.seguro === 'admin' ? 'bg-proyectiva-light text-proyectiva-blue' : 'bg-gray-100 text-gray-700'}">${u.seguro || 'pqr'}</span></td>
+                        <td class="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate">${u.novedad || '-'}</td>
+                        <td class="px-6 py-4"><input type="text" class="admin-novedad-input border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:ring-2 focus:ring-proyectiva-orange" placeholder="Escriba la novedad..." data-correo="${u.correo}" value="${u.novedad || ''}"></td>
+                        <td class="px-6 py-4 text-center"><button onclick="guardarNovedadAdmin(this)" data-correo="${(u.correo || '').replace(/"/g, '&quot;')}" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">Guardar</button></td>
                     `;
                     tbody3.appendChild(tr);
                 });
@@ -808,6 +893,11 @@
         }
 
         // --- LÓGICA DEL MODAL ---
+        function openModalByRow(rowNumber) {
+            const pqr = appData.find(p => p.rowNumber === rowNumber);
+            if (pqr) openModal(pqr);
+        }
+
         function openModal(pqr) {
             currentPQR = pqr;
             const info = pqr.informacion;
