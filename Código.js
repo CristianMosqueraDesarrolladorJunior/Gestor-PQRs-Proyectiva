@@ -5,7 +5,9 @@
 const SHEET_ID = '1_Hi5iunWuSrsT4V2ApWKIka6sdYyz7Mo_atSrz_uxhc';
 const SHEET_PQR = SpreadsheetApp.openById(SHEET_ID).getSheetByName('PQRs');
 const SHEET_GESTION = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Gestion');
+const Leads = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Leads');
 const correoActivo = Session.getActiveUser().getEmail();
+
 
 
 
@@ -33,13 +35,19 @@ function getPQRs() {
   const novedad = SHEET_GESTION.getRange(filaUsuario, 5).getDisplayValue();
 
   let dataFront = [];
-  
+
   switch (expertise) {
     case 'pqr':
       dataFront = getPQRsDataForPQR();
       break;
     case 'admin':
       dataFront = getPQRsDataForAdmin();
+      break;
+    case 'Renovations':
+      dataFront = getRenovations();
+      break;
+    case ('Seguro de Vida' || 'Seguro de Desempleo'):
+      dataFront = getSafeLifeProtec();
       break;
     default:
       return JSON.stringify({ status: 'error', message: 'Usuario sin rol definido para acceder a los PQRs.' });
@@ -48,9 +56,9 @@ function getPQRs() {
 }
 
 function getPQRsDataForPQR() {
-    try {
+  try {
     const data = SHEET_PQR.getDataRange().getValues();
-    let dataFiltrada =data.filter(row => row[6] && row[6].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase());
+    let dataFiltrada = data.filter(row => row[6] && row[6].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase());
     const headers = data.shift(); // Remover cabeceras
 
     let pqrs = dataFiltrada.map((row, index) => {
@@ -85,7 +93,7 @@ function getPQRsDataForPQR() {
 }
 
 function getPQRsDataForAdmin() {
-    try {
+  try {
     const data = SHEET_PQR.getDataRange().getValues();
     const headers = data.shift(); // Remover cabeceras
 
@@ -120,7 +128,189 @@ function getPQRsDataForAdmin() {
   }
 }
 
+function getSafeLifeProtec() {
+  let dataSetPlano = Leads.getRange("A1:O" + Leads.getLastRow()).getDisplayValues();
+  let leadsDelAsesor = dataSetPlano.filter(row => row[3] && row[3].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase());
 
+  dataFront = leadsDelAsesor.filter(row => row[5] !== "VENTA" && row[5] !== "DESISTIDO");
+  dataGestionada = leadsDelAsesor.filter(row => row[5] === "VENTA" || row[5] === "DESISTIDO");
+  let ventas = dataGestionada.filter(row => row[5] === "VENTA")
+  kpiventas = ventas.length
+
+  dataFront = dataFront.map(row => {
+
+    const infoTexto = row[2];
+    const historiaGestiones = row[7];
+    const gestionSeguroVida = row[9];
+    const gestionSeguroDesempleo = row[10];
+    const leadData = JSON.parse(infoTexto);
+
+    let gestiones = [];
+    if (historiaGestiones && String(historiaGestiones).trim() !== "") {
+      let cleanHistoryString = String(historiaGestiones).trim();
+      if (cleanHistoryString.startsWith(")]}',")) {
+        cleanHistoryString = cleanHistoryString.substring(5);
+      }
+      try {
+        gestiones = JSON.parse(cleanHistoryString);
+        gestiones = Array.isArray(gestiones) ? gestiones : [gestiones]; // Asegurar que sea un array
+      } catch (e) {
+        Logger.log("Error parseando historial de gestiones: " + e.message + " Contenido: " + cleanHistoryString);
+        gestiones = [];
+      }
+    }
+
+    const datosVida = JSON.parse(gestionSeguroVida || "{}");
+    const datosDesempleo = JSON.parse(gestionSeguroDesempleo || "{}");
+
+    return {
+      fechaIngreso: row[0],
+      poliza: leadData.poliza || "",
+      numeroSolicitud: row[1],
+      nombre: leadData.nombre || "",
+      id: leadData.id || "",
+      telefono: leadData.telefono || "",
+      correo: leadData.correo || "",
+      ciudad: leadData.ciudad || "",
+      direccion: leadData.direccion || "",
+      tipoInmueble: leadData.tipoInmueble || "",
+      canon: leadData.canon || "",
+      fechaRadicacion: leadData.fechaRadicacion || "",
+      fechaAprobacion: leadData.fechaAprobacion || "",
+      estado: leadData.estado || "",
+      asesorAsignado: row[3],
+      etapaFunel: row[4],
+      estadoGestion: row[5],
+      productoAsignado: row[6],
+      historiaGestiones: gestiones,
+      datosVida: datosVida,
+      datosDesempleo: datosDesempleo,
+      tipoDocumento: leadData.tipoDocumento,
+      cuota: leadData.cuota,
+      nombreInmobiliaria: leadData.nombreInmobiliaria
+    };
+  });
+
+  dataGestionada = dataGestionada.map(row => {
+    const infoTexto = row[2];
+    const historiaGestiones = row[7];
+    const gestionSeguroVida = row[9];
+    const gestionSeguroDesempleo = row[10];
+
+    let leadDataGralString = (infoTexto && String(infoTexto).trim() !== "") ? String(infoTexto).trim() : "{}";
+    if (leadDataGralString.startsWith(")]}',")) {
+      leadDataGralString = leadDataGralString.substring(5);
+    }
+    let leadData = JSON.parse(leadDataGralString);
+
+    let gestiones = [];
+    if (historiaGestiones && String(historiaGestiones).trim() !== "") {
+      let cleanHistoryString = String(historiaGestiones).trim();
+      if (cleanHistoryString.startsWith(")]}',")) {
+        cleanHistoryString = cleanHistoryString.substring(5);
+      }
+      try {
+        gestiones = JSON.parse(cleanHistoryString);
+        gestiones = Array.isArray(gestiones) ? gestiones : [gestiones]; // Asegurar que sea un array
+      } catch (e) {
+        Logger.log("Error parseando historial de gestiones: " + e.message + " Contenido: " + cleanHistoryString);
+        gestiones = [];
+      }
+    }
+
+    const datosVida = JSON.parse(gestionSeguroVida || "{}");
+    const datosDesempleo = JSON.parse(gestionSeguroDesempleo || "{}");
+
+    return {
+      fechaIngreso: row[0],
+      poliza: leadData.poliza || "",
+      numeroSolicitud: row[1],
+      nombre: leadData.nombre || "",
+      id: leadData.id || "",
+      telefono: leadData.telefono || "",
+      correo: leadData.correo || "",
+      ciudad: leadData.ciudad || "",
+      direccion: leadData.direccion || "",
+      tipoInmueble: leadData.tipoInmueble || "",
+      canon: leadData.canon || "",
+      fechaRadicacion: leadData.fechaRadicacion || "",
+      fechaAprobacion: leadData.fechaAprobacion || "",
+      estado: leadData.estado || "",
+      asesorAsignado: row[3],
+      etapaFunel: row[4],
+      estadoGestion: row[5],
+      productoAsignado: row[6],
+      historiaGestiones: gestiones,
+      datosVida: datosVida,
+      datosDesempleo: datosDesempleo,
+      tipoDocumento: leadData.tipoDocumento,
+      cuota: leadData.cuota,
+      nombreInmobiliaria: leadData.nombreInmobiliaria
+    };
+  });
+  totalSolicitudes = dataFront.length + dataGestionada.length
+}
+
+function getRenovations() {
+  const dataSetPlano = DataRenovations.getRange("A1:H" + DataRenovations.getLastRow()).getDisplayValues();
+
+  dataFront = dataSetPlano.filter(row => row[2] && row[2].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase() && (row[3] === "SIN SEGMENTO" || row[3] === "PROPIETARIO" || row[4] === "CORRECCION" || row[4] === "recuperado") && row[4] !== "VENCIDO" && row[4] !== "Caso Especial" && row[4] !== "Enviar a Expedicion" && row[4] !== "Poliza Renovada").map(row => {
+    const registro = row[1];
+    const historiaGestiones = row[6];
+    let datosInquilino = {};
+    try {
+      let inquilinoRaw = row[7]; // Columna H
+      if (inquilinoRaw && inquilinoRaw.trim() !== "") {
+        datosInquilino = JSON.parse(inquilinoRaw);
+      }
+    } catch (e) {
+      datosInquilino = { nombre: "Error Datos", identificacion: "" };
+    }
+
+    let gestiones = [];
+    if (historiaGestiones && String(historiaGestiones).trim() !== "") {
+      let cleanHistoryString = String(historiaGestiones).trim();
+      if (cleanHistoryString.startsWith(")]}',")) {
+        cleanHistoryString = cleanHistoryString.substring(5);
+      }
+      try {
+        gestiones = JSON.parse(cleanHistoryString);
+        gestiones = Array.isArray(gestiones) ? gestiones : [gestiones]; // Asegurar que sea un array
+      } catch (e) {
+        Logger.log("Error parseando historial de gestiones: " + e.message + " Contenido: " + cleanHistoryString);
+        gestiones = [];
+      }
+    }
+
+    let historialGestion = [];
+    leadData = parseLeadData(registro)
+
+    if (historiaGestiones !== "") {
+      historialGestion = gestiones || [];
+    }
+    return {
+      fechaIngreso: row[0],
+      leadData: leadData,
+      nombreAgente: row[2],
+      etapaFunel: row[3],
+      estadoGestion: row[4],
+      historialGestiones: historialGestion,
+      datosInquilino: datosInquilino
+    };
+  });
+
+  dataRecuperacion = dataSetPlano.filter(row => row[2] && row[2].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase() && (row[4].toString().trim().toLowerCase() === "vencido" || row[4].toString().trim().toLowerCase() === "No renueva" || row[4].toString().trim().toLowerCase() === "Desistido")
+  ).map(row => {
+    let leadData = parseLeadData(row[1]);
+    return {
+      fechaIngreso: row[0],
+      leadData: leadData,
+      nombreAgente: row[2],
+      etapaFunel: row[3],
+      estadoGestion: row[4],
+    };
+  });
+};
 // 3. Actualizar una PQR (Update / Gestión)
 function updatePQR(pqrDataStr) {
   try {
