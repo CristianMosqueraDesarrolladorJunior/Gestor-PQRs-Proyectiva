@@ -721,7 +721,7 @@
 
             if (isAppsScript) {
                 Promise.all([
-                    new Promise((ok, err) => google.script.run.withSuccessHandler(ok).withFailureHandler(err).getPQRs()),
+                    new Promise((ok, err) => google.script.run.withSuccessHandler(ok).withFailureHandler(err).getDataUser()),
                     new Promise((ok, err) => google.script.run.withSuccessHandler(ok).withFailureHandler(err).getUsuariosGestion())
                 ]).then(([pqrRes, userRes]) => {
                     const pqr = JSON.parse(pqrRes);

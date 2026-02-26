@@ -2,7 +2,7 @@
  * BACKEND - PROYECTIVA PQR MANAGER
  */
 
-const SHEET_ID = '1_Hi5iunWuSrsT4V2ApWKIka6sdYyz7Mo_atSrz_uxhc';
+const SHEET_ID = '1HKJdbNqOesORaQuPpbYQhpOkrLX5_kXNhhILuC256iM';
 const SHEET_PQR = SpreadsheetApp.openById(SHEET_ID).getSheetByName('PQRs');
 const SHEET_GESTION = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Gestion');
 const Leads = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Leads');
@@ -22,7 +22,7 @@ function doGet(e) {
 }
 
 // 2. Obtener todas las PQRs (Read)
-function getPQRs() {
+function getDataUser() {
   const validarUsuario = SHEET_GESTION.getRange("C2:C").createTextFinder(correoActivo).matchEntireCell(true).ignoreDiacritics(true).findNext();
 
   if (!validarUsuario) {
@@ -35,24 +35,55 @@ function getPQRs() {
   const novedad = SHEET_GESTION.getRange(filaUsuario, 5).getDisplayValue();
 
   let dataFront = [];
+  let dataUsers = {};
 
   switch (expertise) {
+    case 'superAdmin':
+      dataUsers = getUsuariosGestion(expertise)
+      dataFront = getDataForSuperAdmin();
+      break;
+    case 'adminRenovations':
+      dataUsers = getUsuariosGestion(expertise)
+      dataFront = getDataForAdminRenovations();
+      break;
+    case 'adminPQR':
+      dataUsers = getUsuariosGestion(expertise)
+      dataFront = getDataForAdminPqr();
+      break;
+    case 'adminVidaDesempleo':
+      dataUsers = getUsuariosGestion(expertise)
+      dataFront = getDataForAdminVD();
+      break;
     case 'pqr':
       dataFront = getPQRsDataForPQR();
-      break;
-    case 'admin':
-      dataFront = getPQRsDataForAdmin();
       break;
     case 'Renovations':
       dataFront = getRenovations();
       break;
-    case ('Seguro de Vida' || 'Seguro de Desempleo'):
+    case ('Seguro de Desempleo'):
+      dataFront = getSafeLifeProtec();
+      break;
+    case ('Seguro de Vida'):
       dataFront = getSafeLifeProtec();
       break;
     default:
       return JSON.stringify({ status: 'error', message: 'Usuario sin rol definido para acceder a los PQRs.' });
   }
   return dataFront;
+}
+
+function getDataForSuperAdmin() {
+  let adminVD = JSON.parse(getDataForAdminVD()).data;
+  let adminPQR = JSON.parse(getDataForAdminPqr()).data;
+  let adminRenovations = JSON.parse(getDataForAdminRenovations()).data;
+
+  return JSON.stringify({
+    status: 'success', data: {
+      adminVD: adminVD,
+      adminPQR: adminPQR,
+      adminRenovations: adminRenovations
+    }
+  });
 }
 
 function getPQRsDataForPQR() {
@@ -92,7 +123,80 @@ function getPQRsDataForPQR() {
   }
 }
 
-function getPQRsDataForAdmin() {
+function getDataForAdminPqr() {
+  try {
+    const data = SHEET_PQR.getDataRange().getValues();
+    const headers = data.shift(); // Remover cabeceras
+
+    let pqrs = data.map((row, index) => {
+      let infoJSON = {};
+      let historialJSON = [];
+
+      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
+      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
+
+      return {
+        rowNumber: index + 2, // Para actualizar la fila exacta luego
+        id: row[0],
+        tipo: row[1],
+        fechaCreacion: row[2],
+        informacion: infoJSON,
+        estado: row[4] || 'Pendiente',
+        prioridad: row[5] || 'Media',
+        asesor: row[6] || 'Sin Asignar',
+        fechaAsignacion: row[7] || '',
+        fechaCierre: row[8] || '',
+        historial: historialJSON,
+        sla: row[10] || ''
+      };
+      
+    });
+
+    // Ordenar por fecha (más recientes primero)
+    pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+    return JSON.stringify({ status: 'success', data: pqrs });
+  } catch (error) {
+    return JSON.stringify({ status: 'error', message: error.toString() });
+  }
+}
+
+function getDataForAdminRenovations() {
+  try {
+    const data = SHEET_PQR.getDataRange().getValues();
+    const headers = data.shift(); // Remover cabeceras
+
+    let pqrs = data.map((row, index) => {
+      let infoJSON = {};
+      let historialJSON = [];
+
+      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
+      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
+
+      return {
+        rowNumber: index + 2, // Para actualizar la fila exacta luego
+        id: row[0],
+        tipo: row[1],
+        fechaCreacion: row[2],
+        informacion: infoJSON,
+        estado: row[4] || 'Pendiente',
+        prioridad: row[5] || 'Media',
+        asesor: row[6] || 'Sin Asignar',
+        fechaAsignacion: row[7] || '',
+        fechaCierre: row[8] || '',
+        historial: historialJSON,
+        sla: row[10] || ''
+      };
+    });
+
+    // Ordenar por fecha (más recientes primero)
+    pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
+    return JSON.stringify({ status: 'success', data: pqrs });
+  } catch (error) {
+    return JSON.stringify({ status: 'error', message: error.toString() });
+  }
+}
+
+function getDataForAdminVD() {
   try {
     const data = SHEET_PQR.getDataRange().getValues();
     const headers = data.shift(); // Remover cabeceras
@@ -311,6 +415,8 @@ function getRenovations() {
     };
   });
 };
+
+
 // 3. Actualizar una PQR (Update / Gestión)
 function updatePQR(pqrDataStr) {
   try {
@@ -359,13 +465,66 @@ function updatePQR(pqrDataStr) {
 }
 
 // 4. Obtener usuarios de la hoja Gestion (para asignación y admin)
-function getUsuariosGestion() {
+function getUsuariosGestion(admin) {
+
+  let dataUsers
+  switch (admin) {
+    case 'superAdmin':
+      dataUsers = {
+        asesor1: "Autos",
+        asesor2: "Seguro de Contenidos",
+        asesor3: "Coordinadora",
+        asesor4: "Seguro de Desempleo",
+        asesor5: "CorreccionesBI",
+        asesor6: "Renovations",
+        asesor7: "Seguro de Vida",
+        asesor8: "pqr",
+        admin1: "Admin VD",
+        admin2: "Admin PQR",
+        admin3: "Admin Renovations",
+        admin4: "Admin General",
+      }
+      break;
+    case 'adminRenovations':
+      dataUsers = {
+        asesor5: "CorreccionesBI",
+        asesor6: "Renovations",
+        admin3: "Admin Renovations",
+      }
+      break;
+    case 'adminPQR':
+
+      dataUsers = {
+        asesor8: "pqr",
+        admin2: "Admin PQR",
+      }
+
+      break;
+    case 'adminVidaDesempleo':
+
+      dataUsers = {
+        asesor3: "Coordinadora",
+        asesor4: "Seguro de Desempleo",
+        asesor7: "Seguro de Vida",
+        admin1: "Admin VD",
+      }
+      break;
+    default:
+      return JSON.stringify({ status: 'error', message: 'Usuario sin rol definido para acceder a los PQRs.' });
+  }
+
   try {
     const sheet = SHEET_GESTION
     if (!sheet) return JSON.stringify({ status: 'success', data: [] });
     const data = sheet.getDataRange().getValues();
     const usuarios = [];
-    for (let i = 1; i < data.length; i++) {
+
+    let dataFiltrada = data.filter(row => {
+      const rol = row[3] ? row[3].toString().trim() : '';
+      return Object.keys(dataUsers).some(key => dataUsers[key] === rol);
+    });
+
+    for (let i = 1; i < dataFiltrada.length; i++) {
       const correo = (data[i][2] || '').toString().trim();
       if (!correo) continue;
       usuarios.push({
