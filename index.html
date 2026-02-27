@@ -48,6 +48,11 @@
         .modal-content-enter { animation: slideUp 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .vd-etapa { animation: fadeIn 0.25s ease-out; }
+        .vd-step { transition: all 0.2s ease; }
+        .vd-step:hover { background: rgba(0,42,84,0.05); }
+        .vd-guion-card { border-left: 4px solid #002A54; }
+        .vd-input-focus:focus { box-shadow: 0 0 0 2px rgba(255,107,0,0.3); }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-gray-800">
@@ -734,20 +739,20 @@
                                 Finalizar
                             </div>
                         </div>
-                        <div class="p-6">
+                        <div class="p-6 max-h-[calc(100vh-280px)] overflow-y-auto custom-scrollbar">
                             <!-- ETAPA 1: Guion Inicial y Autorización -->
                             <div id="vd-etapa-1" class="vd-etapa space-y-6">
                                 <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
                                     <h4 class="font-bold text-proyectiva-blue mb-3 flex items-center gap-2"><i class="fas fa-comment-dots"></i> Guion de Introducción</h4>
-                                    <p class="text-gray-700 mb-3">"Buenos días/tardes señor(a) <strong id="vd-guion-nombre">[NOMBRE]</strong>, mi nombre es de Agencia de Proyectiva Agencia de Seguros Ltda. ¿Cómo se encuentra el día de hoy? Le informo que esta llamada está siendo grabada y monitoreada."</p>
-                                    <h4 class="font-bold text-proyectiva-blue mb-2 mt-4">Autorización de Datos Personales</h4>
+                                    <p class="text-gray-700 mb-3">"Buenos días/tardes señor(a) <strong id="vd-guion-nombre">[NOMBRE]</strong>, mi nombre es "XXXXXX" de Agencia de Proyectiva Agencia de Seguros Ltda. ¿Cómo se encuentra el día de hoy? Le informo que esta llamada está siendo grabada y monitoreada."</p>
+                                    <h4 class="font-bold text-proyectiva-blue mb-2 mt-4"><i class="fas fa-file-signature mr-1"></i>Autorización de Datos Personales</h4>
                                     <p class="text-gray-700">"¿Me autoriza el tratamiento de sus datos personales para darle información de las empresas que hacen parte del Grupo Bolívar?"</p>
-                                    <p class="text-amber-700 text-sm mt-2 font-medium"><i class="fas fa-exclamation-triangle mr-1"></i> Si el cliente NO autoriza, la gestión debe ser <strong>Suspendida</strong>.</p>
+                                    <p class="text-amber-700 text-sm mt-2 font-medium"><i class="fas fa-exclamation-triangle mr-1"></i> <strong>INSTRUCCIÓN:</strong> Si el cliente NO autoriza el tratamiento de sus datos personales, la gestión debe ser <strong>Suspendida</strong>.</p>
                                 </div>
                                 <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
-                                    <h4 class="font-bold text-proyectiva-blue mb-3">Confirmación de Correo</h4>
+                                    <h4 class="font-bold text-proyectiva-blue mb-3"><i class="fas fa-envelope mr-1"></i>Confirmación de Correo</h4>
                                     <p class="text-gray-700 mb-2">"Podría confirmarme su correo electrónico actual, por favor:"</p>
-                                    <input type="email" id="vd-email-cliente" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-proyectiva-orange outline-none" placeholder="correo@ejemplo.com" required>
+                                    <input type="email" id="vd-email-cliente" onchange="vdValidarEmail()" oninput="vdValidarEmail()" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-proyectiva-orange outline-none" placeholder="correo@ejemplo.com" required>
                                 </div>
                                 <div id="vd-datos-vida-inicial" class="bg-white p-5 rounded-xl border border-gray-200 space-y-4">
                                     <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-user-edit"></i> Datos del cliente y validación de edad</h4>
@@ -755,7 +760,7 @@
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento *</label>
                                             <div class="flex gap-2">
-                                                <input type="date" id="vd-fecha-nacimiento" class="flex-1 border border-gray-300 rounded-lg px-3 py-2" required>
+                                                <input type="date" id="vd-fecha-nacimiento" onchange="vdValidarEdad()" class="flex-1 border border-gray-300 rounded-lg px-3 py-2" required>
                                                 <button type="button" onclick="vdValidarEdad()" class="px-4 py-2 rounded-lg bg-proyectiva-blue hover:bg-blue-900 text-white text-sm font-semibold shrink-0">Validar Edad</button>
                                             </div>
                                             <p class="text-sm mt-1">Edad: <span id="vd-edad-display" class="font-bold text-proyectiva-blue">--</span></p>
@@ -779,12 +784,12 @@
                                     </div>
                                 </div>
                                 <div id="vd-cotizador" class="bg-amber-50 p-5 rounded-xl border border-amber-200 space-y-4">
-                                    <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-calculator"></i> Cotizador</h4>
-                                    <p class="text-gray-700 text-sm">"El valor de su canon es de <strong>[CANON]</strong> ¿es correcto? ¿El valor que paga de administración es de <strong>[ADMIN]</strong>?"</p>
+                                    <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-calculator"></i> Detalles de la Protección - Cotizador</h4>
+                                    <p class="text-gray-700 text-sm">"El valor de su canon es de <strong id="vd-guion-canon">[CANON]</strong> ¿es correcto? ¿Actualmente el valor que paga de administración es de <strong id="vd-guion-admin">[ADMIN]</strong>? Teniendo en cuenta su canon por valor de <strong id="vd-guion-total">[TOTAL]</strong>, esta protección tiene un costo mensual de <strong id="vd-guion-costo">[COSTO_PROTECCION]</strong> para garantizar a su familia 1, 2 o 3 año(s) de arrendamiento. ¿A través de qué medio electrónico haríamos el débito de su protección: cuenta de ahorros, cuenta corriente o tarjeta de crédito?"</p>
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">Canon arrendamiento *</label>
-                                            <input type="number" id="vd-canon" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="0" min="0" step="1000">
+                                            <input type="number" id="vd-canon" onchange="vdValidarCotizador()" oninput="vdValidarCotizador()" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="0" min="0" step="1000">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">Administración</label>
@@ -792,28 +797,29 @@
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">Costo protección mensual *</label>
-                                            <input type="number" id="vd-costo-proteccion" class="w-full border border-gray-300 rounded-lg px-3 py-2 font-semibold text-proyectiva-blue" placeholder="0" min="0" step="1000">
+                                            <input type="number" id="vd-costo-proteccion" onchange="vdValidarCotizador()" oninput="vdValidarCotizador()" class="w-full border border-gray-300 rounded-lg px-3 py-2 font-semibold text-proyectiva-blue" placeholder="0" min="0" step="1000">
                                         </div>
                                     </div>
                                 </div>
                                 <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 vd-guion-vida">
-                                    <h4 class="font-bold text-proyectiva-blue mb-2">Presentación Protección Vida</h4>
-                                    <p class="text-gray-700">"Muchas gracias. Nos complace informarle que su solicitud ha sido aprobada. Usted cuenta con el privilegio de acceder a una protección que le garantizará a su familia 1, 2 o 3 años de arrendamiento en caso de su fallecimiento o una incapacidad total y permanente mayor a 150 días continuos."</p>
+                                    <h4 class="font-bold text-proyectiva-blue mb-2"><i class="fas fa-award mr-1"></i>Presentación de Protección Vida</h4>
+                                    <p class="text-gray-700">"Muchas gracias. Nos complace informarle que su solicitud ha sido aprobada y queremos felicitarlo/a por su nuevo contrato de arrendamiento. Gracias a esta aprobación, usted cuenta con el privilegio de acceder a una protección que le garantizará a su familia 1, 2 o 3 años de arrendamiento en caso de su fallecimiento o una incapacidad total y permanente mayor a 150 días continuos."</p>
                                 </div>
                                 <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 vd-guion-desempleo hidden">
-                                    <h4 class="font-bold text-proyectiva-blue mb-2">Presentación Protección Desempleo</h4>
-                                    <p class="text-gray-700">"Muchas gracias. Nos complace informarle que su solicitud ha sido aprobada. Usted cuenta con el privilegio de poder acceder a una protección para cubrir sus cánones de arrendamiento en los siguientes casos, sin límite de eventos."</p>
+                                    <h4 class="font-bold text-proyectiva-blue mb-2"><i class="fas fa-award mr-1"></i>Presentación Protección Desempleo</h4>
+                                    <p class="text-gray-700">"Muchas gracias, nos complace informarle que su solicitud ha sido aprobada y queremos felicitarlo/a por su nuevo contrato de arrendamiento. Gracias a esta aprobación usted cuenta con el privilegio de poder acceder a una protección para cubrir sus cánones de arrendamiento en los siguientes casos, sin límite de eventos:"</p>
                                 </div>
                                 <div class="flex gap-3">
                                     <label class="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="vd-autoriza-datos" value="si" required class="text-green-600 focus:ring-proyectiva-orange">
+                                        <input type="radio" name="vd-autoriza-datos" value="si" onchange="vdValidarAutorizaDatos()" required class="text-green-600 focus:ring-proyectiva-orange">
                                         <span>Cliente SÍ Acepta</span>
                                     </label>
                                     <label class="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="vd-autoriza-datos" value="no" class="text-red-600 focus:ring-proyectiva-orange">
+                                        <input type="radio" name="vd-autoriza-datos" value="no" onchange="vdValidarAutorizaDatos()" class="text-red-600 focus:ring-proyectiva-orange">
                                         <span>Cliente NO Acepta</span>
                                     </label>
                                 </div>
+                                <div id="vd-autoriza-datos-msg" class="mt-2 hidden"></div>
                             </div>
                             <!-- ETAPA 2a: Vida - Declaración Asegurabilidad + Info Médica -->
                             <div id="vd-etapa-2-vida" class="vd-etapa hidden space-y-6">
@@ -822,11 +828,13 @@
                                     <div class="space-y-4">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">1. ¿Sus actividades, profesión u oficio han sido y son lícitos?</label>
-                                            <div class="flex gap-4"><label><input type="radio" name="vd-p1-licito" value="si" required> Sí</label><label><input type="radio" name="vd-p1-licito" value="no"> No</label></div>
+                                            <div class="flex gap-4"><label><input type="radio" name="vd-p1-licito" value="si" onchange="vdValidarP1Licito()" required> Sí</label><label><input type="radio" name="vd-p1-licito" value="no" onchange="vdValidarP1Licito()"> No</label></div>
+                                            <div id="vd-p1-licito-msg" class="mt-2 hidden"></div>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">2. ¿Nunca ha sido indiciado ni ha hecho parte de un proceso penal?</label>
-                                            <div class="flex gap-4"><label><input type="radio" name="vd-p2-penal" value="si" required> Sí</label><label><input type="radio" name="vd-p2-penal" value="no"> No</label></div>
+                                            <div class="flex gap-4"><label><input type="radio" name="vd-p2-penal" value="si" onchange="vdValidarP2Penal()" required> Sí</label><label><input type="radio" name="vd-p2-penal" value="no" onchange="vdValidarP2Penal()"> No</label></div>
+                                            <div id="vd-p2-penal-msg" class="mt-2 hidden"></div>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">3. ¿Frecuencia de deportes de alto riesgo?</label>
@@ -848,22 +856,39 @@
                                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">Peso (kg)</label>
-                                            <input type="number" id="vd-peso" step="0.1" class="w-full border rounded-lg px-3 py-2" required>
+                                            <input type="number" id="vd-peso" step="0.1" onchange="vdCalcularIMC()" oninput="vdCalcularIMC()" class="w-full border rounded-lg px-3 py-2" required>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">Estatura (cm)</label>
-                                            <input type="number" id="vd-estatura" step="0.1" class="w-full border rounded-lg px-3 py-2" required>
+                                            <input type="number" id="vd-estatura" step="0.1" onchange="vdCalcularIMC()" oninput="vdCalcularIMC()" class="w-full border rounded-lg px-3 py-2" required>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-medium text-gray-600 mb-1">IMC (calculado)</label>
                                             <input type="text" id="vd-imc" class="w-full border rounded-lg px-3 py-2 bg-gray-100" readonly>
                                         </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Estado Asegurabilidad</label>
+                                            <input type="text" id="vd-asegurable" class="w-full border rounded-lg px-3 py-2 font-semibold text-center" readonly placeholder="Ingrese peso y estatura">
+                                        </div>
                                     </div>
-                                    <div class="grid grid-cols-2 gap-4 text-sm">
-                                        <div><label class="block font-medium mb-1">¿Hipertensión?</label><div class="flex gap-2"><label><input type="radio" name="vd-hipertension" value="si" required> Sí</label><label><input type="radio" name="vd-hipertension" value="no"> No</label></div></div>
-                                        <div><label class="block font-medium mb-1">¿Diabetes?</label><div class="flex gap-2"><label><input type="radio" name="vd-diabetes" value="si" required> Sí</label><label><input type="radio" name="vd-diabetes" value="no"> No</label></div></div>
-                                        <div><label class="block font-medium mb-1">¿Cáncer o tumores?</label><div class="flex gap-2"><label><input type="radio" name="vd-cancer" value="si" required> Sí</label><label><input type="radio" name="vd-cancer" value="no"> No</label></div></div>
-                                        <div><label class="block font-medium mb-1">¿SIDA/VIH positivo?</label><div class="flex gap-2"><label><input type="radio" name="vd-vih" value="si" required> Sí</label><label><input type="radio" name="vd-vih" value="no"> No</label></div></div>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                                        <div><label class="block font-medium mb-1">3. ¿Hipertensión arterial?</label><div class="flex gap-2"><label><input type="radio" name="vd-hipertension" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-hipertension" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">4. ¿Colesterol o triglicéridos elevados?</label><div class="flex gap-2"><label><input type="radio" name="vd-colesterol" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-colesterol" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">5. ¿Diabetes?</label><div class="flex gap-2"><label><input type="radio" name="vd-diabetes" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-diabetes" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">6. ¿Enfermedad coronaria o infarto?</label><div class="flex gap-2"><label><input type="radio" name="vd-coronaria" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-coronaria" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">7. ¿Insuficiencia renal?</label><div class="flex gap-2"><label><input type="radio" name="vd-insuficiencia-renal" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-insuficiencia-renal" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">8. ¿Cáncer o tumores?</label><div class="flex gap-2"><label><input type="radio" name="vd-cancer" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-cancer" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">9. ¿Derrame o trombosis cerebral?</label><div class="flex gap-2"><label><input type="radio" name="vd-derrame" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-derrame" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">10. ¿Enfermedades psicológicas o psiquiátricas?</label><div class="flex gap-2"><label><input type="radio" name="vd-psicologicas" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-psicologicas" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">11. ¿SIDA?</label><div class="flex gap-2"><label><input type="radio" name="vd-sida" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-sida" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">12. ¿Prueba VIH positiva?</label><div class="flex gap-2"><label><input type="radio" name="vd-vih" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-vih" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">13. ¿Secuelas enfermedad/accidente?</label><div class="flex gap-2"><label><input type="radio" name="vd-secuelas" value="si" onchange="vdValidarInfoMedica()"> Sí</label><label><input type="radio" name="vd-secuelas" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">14. ¿Diagnóstico enfermedad/fracturas?</label><div class="flex gap-2"><label><input type="radio" name="vd-diagnostico" value="si" onchange="vdValidarInfoMedica()" required> Sí</label><label><input type="radio" name="vd-diagnostico" value="no" onchange="vdValidarInfoMedica()"> No</label></div></div>
+                                    </div>
+                                    <div id="vd-info-medica-msg" class="mt-3 hidden"></div>
+                                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-100 mt-4">
+                                        <p class="text-gray-700 text-sm mb-2">"Le recordamos que esta protección es opcional y libre de cláusulas de permanencia. Para poder continuar con el proceso, debemos hacerle unas preguntas acerca de su estado de salud y otros datos personales. En desarrollo de nuestras Políticas de Protección de Datos Personales, solicitamos de manera expresa su autorización para el tratamiento de los mismos. ¿Autoriza?"</p>
+                                        <p class="text-amber-700 text-xs font-medium"><strong>IMPORTANTE:</strong> Una declaración inexacta o reticente genera la nulidad del contrato (Art. 1058 Código de Comercio). Si NO autoriza, la venta debe suspenderse.</p>
                                     </div>
                                     <div class="mt-4">
                                         <label class="flex items-center gap-2 cursor-pointer">
@@ -875,10 +900,18 @@
                             </div>
                             <!-- ETAPA 2b: Desempleo - Autorizaciones -->
                             <div id="vd-etapa-2-desempleo" class="vd-etapa hidden space-y-6">
+                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
+                                    <h4 class="font-bold text-proyectiva-blue mb-3 flex items-center gap-2"><i class="fas fa-comment-dots"></i> Guion de Inicio Desempleo</h4>
+                                    <p class="text-gray-700">Buenos días y/o tardes señor(a) <strong id="vd-guion-nombre-des">[NOMBRE]</strong>, mi nombre es "XXXXXX" de Proyectiva Agencia de Seguros Ltda., ¿cómo se encuentra el día de hoy? Le informo que esta llamada está siendo grabada y monitoreada. <strong>GUION:</strong> ¿Me autoriza el tratamiento de sus datos personales para darle información de las empresas que hacen parte del Grupo Bolívar? <span class="text-amber-700 font-medium">INSTRUCCIÓN: Si el cliente No autoriza el tratamiento de sus datos personales, se Suspende la Venta.</span></p>
+                                </div>
                                 <div class="bg-white p-5 rounded-xl border border-gray-200">
                                     <h4 class="font-bold text-proyectiva-blue mb-4">Autorización de Datos Personales</h4>
                                     <p class="text-gray-700 mb-3">¿Autoriza el tratamiento de sus datos personales para darle información de las empresas del Grupo Bolívar?</p>
-                                    <div class="flex gap-4"><label><input type="radio" name="vd-des-autoriza" value="si" required> Sí</label><label><input type="radio" name="vd-des-autoriza" value="no"> No</label></div>
+                                    <div class="flex gap-4"><label><input type="radio" name="vd-des-autoriza" value="si" onchange="vdValidarDesAutoriza()" required> Sí</label><label><input type="radio" name="vd-des-autoriza" value="no" onchange="vdValidarDesAutoriza()"> No</label></div>
+                                    <div id="vd-des-autoriza-msg" class="mt-2 hidden"></div>
+                                </div>
+                                <div class="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-4">
+                                    <p class="text-sm text-gray-700"><strong>Recuerda vendedor:</strong> Independiente (Contratista, contrato por prestación de servicios, Cooperativas de Trabajo Asociado, RUT/Cámara de Comercio). Empleado (Término Indefinido, contrato fijo ≥6 meses, obra o labor, carrera administrativa, libre nombramiento, provisionalidad). <strong>No asegurable:</strong> estudiante, ama de casa, pensionado sin otra ocupación, fuerzas militares y de seguridad.</p>
                                 </div>
                                 <div class="bg-white p-5 rounded-xl border border-gray-200">
                                     <h4 class="font-bold text-proyectiva-blue mb-4">Información Laboral</h4>
@@ -886,15 +919,17 @@
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del empleador</label>
                                             <input type="text" id="vd-nombre-empleador" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="¿En cuál entidad labora?">
+                                            <p class="text-xs text-amber-600 mt-1">Si el cliente NO autoriza, diligenciar "NO AUTORIZA EL TRATAMIENTO DE DATOS"</p>
                                         </div>
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de vinculación</label>
                                             <div class="space-y-1">
-                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="Empleado" required> Empleado</label>
-                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="Independiente"> Independiente</label>
-                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="No asegurable"> No asegurable</label>
-                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="No autoriza el tratamiento de datos"> No autoriza datos</label>
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="Empleado" onchange="vdValidarTipoVinculacion()" required> Empleado</label>
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="Independiente" onchange="vdValidarTipoVinculacion()"> Independiente</label>
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="No asegurable" onchange="vdValidarTipoVinculacion()"> No asegurable</label>
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="No autoriza el tratamiento de datos" onchange="vdValidarTipoVinculacion()"> No autoriza datos</label>
                                             </div>
+                                            <div id="vd-tipo-vinculacion-msg" class="mt-2 hidden"></div>
                                         </div>
                                         <div id="vd-tipo-contrato-container" class="hidden">
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de contrato (Empleado)</label>
@@ -917,49 +952,79 @@
                                 <div class="bg-white p-5 rounded-xl border border-gray-200">
                                     <h4 class="font-bold text-proyectiva-blue mb-3">Ocupación lícita</h4>
                                     <p class="text-gray-700 mb-3">¿Su actividad laboral es lícita y la ejerce dentro de los marcos legales?</p>
-                                    <div class="flex gap-4"><label><input type="radio" name="vd-ocupacion-licita" value="si" required> Sí</label><label><input type="radio" name="vd-ocupacion-licita" value="no"> No</label></div>
+                                    <div class="flex gap-4"><label><input type="radio" name="vd-ocupacion-licita" value="si" onchange="vdValidarOcupacionLicita()" required> Sí</label><label><input type="radio" name="vd-ocupacion-licita" value="no" onchange="vdValidarOcupacionLicita()"> No</label></div>
+                                    <div id="vd-ocupacion-licita-msg" class="mt-2 hidden"></div>
                                 </div>
                             </div>
                             <!-- ETAPA 3: Autorización Descuento Débito -->
                             <div id="vd-etapa-3" class="vd-etapa hidden space-y-6">
                                 <div class="bg-amber-50 p-5 rounded-xl border border-amber-200">
-                                    <h4 class="font-bold text-proyectiva-blue mb-2">Guion - Lectura al Cliente</h4>
+                                    <h4 class="font-bold text-proyectiva-blue mb-2"><i class="fas fa-file-signature mr-1"></i>Guion - Lectura al Cliente</h4>
                                     <p class="text-gray-700 text-sm">"AUTORIZACIÓN DE DESCUENTO DÉBITO AUTOMÁTICO. Autorizo a Seguros Comerciales Bolívar S.A. para descontar de la cuenta/tarjeta terminada en No. <strong id="vd-guion-num-cuenta">____</strong> del Banco <strong id="vd-guion-entidad">____</strong>, los pagos por concepto de prima mensual por valor de <strong id="vd-guion-prima">____</strong>."</p>
+                                    <p class="text-xs text-amber-700 mt-2 font-medium">Si CANAL es Tarjeta de Crédito: complete Franquicia y Fecha vencimiento. En caso contrario continúe desde Número cuenta.</p>
                                 </div>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Canal de descuento *</label>
-                                        <select id="vd-canal-descuento" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
+                                        <select id="vd-canal-descuento" onchange="vdValidarDescuento()" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
                                             <option value="">Seleccione...</option>
                                             <option value="Cuenta Ahorros">Cuenta de Ahorros</option>
                                             <option value="Cuenta Corriente">Cuenta Corriente</option>
                                             <option value="Tarjeta Credito">Tarjeta de Crédito</option>
                                         </select>
                                     </div>
-                                    <div id="vd-tc-fields" class="hidden">
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha vencimiento TC</label>
-                                        <input type="month" id="vd-fecha-venc-tc" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    <div id="vd-tc-fields" class="hidden space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Franquicia *</label>
+                                            <select id="vd-franquicia-descuento" onchange="vdValidateAccountNumber(); vdValidarDescuento();" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                                <option value="">Seleccione...</option>
+                                                <option value="VISA">TARJETA - VISA</option>
+                                                <option value="MASTER CARD">TARJETA - MASTER CARD</option>
+                                                <option value="DINERS CLUB">TARJETA - DINERS CLUB</option>
+                                                <option value="AMERICAN EXPRESS">TARJETA - AMERICAN EXPRESS</option>
+                                            </select>
+                                            <p class="text-xs text-amber-600 mt-1">Complete si el canal es Tarjeta de Crédito</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha vencimiento TC</label>
+                                            <input type="month" id="vd-fecha-venc-tc" class="w-full border border-gray-300 rounded-lg px-3 py-2" min="2024-01" max="2032-12">
+                                        </div>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Entidad bancaria *</label>
-                                        <select id="vd-entidad-bancaria" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
+                                        <select id="vd-entidad-bancaria" onchange="vdValidateAccountNumber(); vdValidarDescuento();" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
                                             <option value="">Seleccione...</option>
-                                            <option value="BANCOLOMBIA">Bancolombia</option>
-                                            <option value="BANCO DE BOGOTA">Banco de Bogotá</option>
-                                            <option value="DAVIVIENDA">Davivienda</option>
+                                            <option value="AV VILLAS">AV VILLAS</option>
+                                            <option value="BANCO CAJA SOCIAL">BANCO CAJA SOCIAL</option>
+                                            <option value="BANCO DAVIVIENDA">BANCO DAVIVIENDA</option>
+                                            <option value="BANCO DE BOGOTA">BANCO DE BOGOTA</option>
+                                            <option value="BANCO FALABELLA">BANCO FALABELLA</option>
+                                            <option value="BANCOLOMBIA">BANCOLOMBIA</option>
+                                            <option value="BANCO OCCIDENTE">BANCO OCCIDENTE</option>
+                                            <option value="BANCO POPULAR">BANCO POPULAR</option>
+                                            <option value="BANCO SCOTIABANK">BANCO SCOTIABANK</option>
                                             <option value="BBVA">BBVA</option>
-                                            <option value="AV VILLAS">AV Villas</option>
-                                            <option value="NEQUI">Nequi</option>
-                                            <option value="DAVIPLATA">Daviplata</option>
+                                            <option value="CITIBANK">CITIBANK</option>
+                                            <option value="CITY BANK">CITY BANK</option>
+                                            <option value="COLPATRIA">COLPATRIA</option>
+                                            <option value="CORPBANCA">CORPBANCA</option>
+                                            <option value="DAVIPLATA">DAVIPLATA</option>
+                                            <option value="GNB">GNB</option>
+                                            <option value="GNB SUDAMERIS">GNB SUDAMERIS</option>
+                                            <option value="HSBC">HSBC</option>
+                                            <option value="ITAU">ITAU</option>
+                                            <option value="NEQUI">NEQUI</option>
+                                            <option value="SUDAMERIS">SUDAMERIS</option>
                                         </select>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Número cuenta/tarjeta *</label>
-                                        <input type="text" id="vd-numero-cuenta" class="w-full border border-gray-300 rounded-lg px-3 py-2" required placeholder="Últimos 4 dígitos">
+                                        <input type="text" id="vd-numero-cuenta" onchange="vdAutoFranquiciaYValidar();" oninput="vdAutoFranquiciaYValidar();" class="w-full border border-gray-300 rounded-lg px-3 py-2" required placeholder="Ingrese número (franquicia se detecta automáticamente)">
+                                        <p id="vd-cuenta-digitos" class="text-sm mt-1"></p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Valor prima *</label>
-                                        <input type="number" id="vd-valor-prima" step="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
+                                        <input type="number" id="vd-valor-prima" step="0.01" onchange="vdValidarDescuento()" oninput="vdValidarDescuento()" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
                                     </div>
                                 </div>
                                 <div class="space-y-2">
@@ -991,9 +1056,9 @@
                                             <option value="hermano">Hermano/a</option>
                                             <option value="otro">Otro</option>
                                         </select>
-                                        <input type="number" id="vd-ben1-designacion" min="0" max="100" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
+                                        <input type="number" id="vd-ben1-designacion" min="0" max="100" onchange="vdValidarBeneficiarios(); vdSugerirBen2();" oninput="vdValidarBeneficiarios(); vdSugerirBen2();" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
                                     </div>
-                                    <div class="border border-gray-200 rounded-xl p-4">
+                                    <div id="vd-ben2-container" class="border border-gray-200 rounded-xl p-4">
                                         <h5 class="font-bold text-gray-700 mb-3">Beneficiario 2</h5>
                                         <input type="text" id="vd-ben2-nombre" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Nombre">
                                         <input type="text" id="vd-ben2-apellido" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Apellidos">
@@ -1005,9 +1070,9 @@
                                             <option value="hermano">Hermano/a</option>
                                             <option value="otro">Otro</option>
                                         </select>
-                                        <input type="number" id="vd-ben2-designacion" min="0" max="100" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
+                                        <input type="number" id="vd-ben2-designacion" min="0" max="100" onchange="vdValidarBeneficiarios()" oninput="vdValidarBeneficiarios()" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
                                     </div>
-                                    <div class="border border-gray-200 rounded-xl p-4">
+                                    <div id="vd-ben3-container" class="border border-gray-200 rounded-xl p-4">
                                         <h5 class="font-bold text-gray-700 mb-3">Beneficiario 3</h5>
                                         <input type="text" id="vd-ben3-nombre" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Nombre">
                                         <input type="text" id="vd-ben3-apellido" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Apellidos">
@@ -1019,10 +1084,11 @@
                                             <option value="hermano">Hermano/a</option>
                                             <option value="otro">Otro</option>
                                         </select>
-                                        <input type="number" id="vd-ben3-designacion" min="0" max="100" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
+                                        <input type="number" id="vd-ben3-designacion" min="0" max="100" onchange="vdValidarBeneficiarios()" oninput="vdValidarBeneficiarios()" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
                                     </div>
                                 </div>
-                                <p id="vd-ben-sum-msg" class="text-red-600 text-sm font-medium hidden">La suma de designaciones debe ser 100%</p>
+                                <p id="vd-ben-restante" class="text-proyectiva-blue text-sm font-semibold mt-2 hidden"></p>
+                                <p id="vd-ben-sum-msg" class="text-red-600 text-sm font-medium hidden mt-1">La suma de designaciones debe ser 100%</p>
                             </div>
                             <!-- ETAPA 4b: Reiterar Coberturas (Desempleo) -->
                             <div id="vd-etapa-4-desempleo" class="vd-etapa hidden space-y-6">
@@ -1138,24 +1204,23 @@
             const vdFilter = document.getElementById('vd-filter-producto');
             if (vdSearch) vdSearch.addEventListener('input', () => renderVDTab());
             if (vdFilter) vdFilter.addEventListener('change', () => renderVDTab());
-            document.querySelectorAll('input[name="vd-producto-gestion"]').forEach(r => r.addEventListener('change', () => { vdUpdateProductLabels(); vdShowStep(vdCurrentStep); }));
+            document.querySelectorAll('input[name="vd-producto-gestion"]').forEach(r => r.addEventListener('change', () => { vdUpdateProductLabels(); vdValidarEdad(); vdShowStep(vdCurrentStep); }));
             document.querySelectorAll('input[name="vd-tipo-vinculacion"]').forEach(r => r.addEventListener('change', function() {
                 const c = document.getElementById('vd-tipo-contrato-container');
                 if (c) c.classList.toggle('hidden', this.value !== 'Empleado');
+                vdValidarTipoVinculacion();
                 if (vdCurrentStep === 4 && vdGetProducto() === 'desempleo') vdRenderCoberturas();
             }));
             const canalDesc = document.getElementById('vd-canal-descuento');
             if (canalDesc) canalDesc.addEventListener('change', function() {
                 const tc = document.getElementById('vd-tc-fields');
+                const franq = document.getElementById('vd-franquicia-descuento');
                 if (tc) tc.classList.toggle('hidden', this.value !== 'Tarjeta Credito');
+                if (franq) { franq.required = this.value === 'Tarjeta Credito'; franq.value = ''; }
+                vdValidateAccountNumber();
+                vdValidarDescuento();
             });
-            const pesoEl = document.getElementById('vd-peso');
-            const estEl = document.getElementById('vd-estatura');
-            if (pesoEl && estEl) {
-                const calcImc = () => { const p = parseFloat(pesoEl.value); const e = parseFloat(estEl.value) / 100; document.getElementById('vd-imc').value = (p && e ? (p / (e * e)).toFixed(1) : ''); };
-                pesoEl.addEventListener('input', calcImc);
-                estEl.addEventListener('input', calcImc);
-            }
+            // IMC se calcula vía onchange/oninput en vdCalcularIMC()
             ['vd-numero-cuenta','vd-entidad-bancaria','vd-valor-prima'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.addEventListener('input', function() {
@@ -1163,6 +1228,11 @@
                     const t = document.getElementById(g[id]);
                     if (t) t.textContent = this.value || '____';
                 });
+            });
+            ['vd-canon','vd-administracion','vd-costo-proteccion'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', vdActualizarGuionCotizador);
+                if (el) el.addEventListener('change', vdActualizarGuionCotizador);
             });
             document.querySelectorAll('.vd-step').forEach((el, i) => {
                 el.addEventListener('click', () => {
@@ -1566,19 +1636,42 @@
                 </div>`;
             }).join('') : '<p class="text-gray-500 text-sm py-4 text-center">Sin historial de gestiones.</p>';
             vdResetForms();
-            document.getElementById('vd-guion-nombre').textContent = v.nombre || '[NOMBRE]';
-            document.getElementById('vd-cobertura-nombre').textContent = v.nombre || 'XXXX';
-            document.getElementById('vd-email-cliente').value = v.email || v.correo || '';
+            const nom = v.nombre || '[NOMBRE]';
+            document.getElementById('vd-guion-nombre').textContent = nom;
+            document.getElementById('vd-cobertura-nombre').textContent = nom;
+            const nomDes = document.getElementById('vd-guion-nombre-des');
+            if (nomDes) nomDes.textContent = nom;
+            document.getElementById('vd-email-cliente').value = v.email || v.correo || v.leadData?.correo || '';
             document.getElementById('vd-edad-display').textContent = '--';
-            const fn = v.fechaNacimiento || v.datosVida?.fechaNacimiento || v.datosDesempleo?.fechaNacimiento || '';
+            const fn = v.fechaNacimiento || v.datosVida?.fechaNacimiento || v.datosDesempleo?.fechaNacimiento || v.leadData?.fechaNacimiento || '';
             if (fn) {
                 document.getElementById('vd-fecha-nacimiento').value = fn.split(' ')[0].split('T')[0];
                 vdValidarEdad();
             }
-            const canonVal = v.canon || v.datosVida?.canon || v.datosDesempleo?.canon || '';
-            const costoVal = v.costoProteccion || v.datosVida?.prima || v.datosDesempleo?.costoProteccion || '';
-            if (canonVal) document.getElementById('vd-canon').value = canonVal;
+            const canonVal = v.canon || v.datosVida?.canon || v.datosDesempleo?.canon || v.leadData?.canon || '';
+            const adminVal = v.datosVida?.administracion || v.datosDesempleo?.administracion || 0;
+            const costoVal = v.costoProteccion || v.datosVida?.prima || v.datosDesempleo?.costoProteccion || v.leadData?.costoProteccion || '';
+            if (canonVal) document.getElementById('vd-canon').value = String(canonVal).replace(/[^0-9.]/g, '');
+            if (adminVal) document.getElementById('vd-administracion').value = String(adminVal).replace(/[^0-9.]/g, '');
             if (costoVal) document.getElementById('vd-costo-proteccion').value = String(costoVal).replace(/[^0-9.]/g, '');
+            const tipoDoc = v.datosVida?.tipoDocumento || v.datosDesempleo?.tipoDocumento || v.leadData?.tipoDocumento || '';
+            if (tipoDoc) {
+                const sel = document.getElementById('vd-tipo-documento');
+                if (sel && ['CC','CE','PAS'].includes(tipoDoc)) sel.value = tipoDoc;
+            }
+            const genero = v.datosVida?.genero || v.datosDesempleo?.genero || v.leadData?.genero || '';
+            if (genero) {
+                const sel = document.getElementById('vd-genero');
+                if (sel && ['M','F'].includes(genero)) sel.value = genero;
+            }
+            const nombreEmp = v.datosDesempleo?.nombreEmpleador || v.leadData?.nombreEmpleador || '';
+            if (nombreEmp) document.getElementById('vd-nombre-empleador').value = nombreEmp;
+            const tipoVincula = v.datosDesempleo?.tipoVinculacion || v.leadData?.tipoVinculacion || '';
+            if (tipoVincula) {
+                const r = document.querySelector(`input[name="vd-tipo-vinculacion"][value="${tipoVincula}"]`);
+                if (r) r.checked = true;
+            }
+            vdActualizarGuionCotizador();
             vdShowStep(1);
             document.getElementById('modalLeadGestion').classList.remove('hidden');
             document.getElementById('modalLeadGestion').classList.add('flex');
@@ -1586,6 +1679,23 @@
 
         function vdGetProducto() {
             return document.querySelector('input[name="vd-producto-gestion"]:checked')?.value || 'vida';
+        }
+
+        /** Actualiza guion cotizador con valores en tiempo real */
+        function vdActualizarGuionCotizador() {
+            const canon = parseFloat(document.getElementById('vd-canon')?.value) || 0;
+            const admin = parseFloat(document.getElementById('vd-administracion')?.value) || 0;
+            const costo = parseFloat(document.getElementById('vd-costo-proteccion')?.value) || 0;
+            const total = canon + admin;
+            const fmt = (n) => n ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n) : '[---]';
+            const gCanon = document.getElementById('vd-guion-canon');
+            const gAdmin = document.getElementById('vd-guion-admin');
+            const gTotal = document.getElementById('vd-guion-total');
+            const gCosto = document.getElementById('vd-guion-costo');
+            if (gCanon) gCanon.textContent = fmt(canon) || '[CANON]';
+            if (gAdmin) gAdmin.textContent = fmt(admin) || '[ADMIN]';
+            if (gTotal) gTotal.textContent = fmt(total) || '[TOTAL]';
+            if (gCosto) gCosto.textContent = fmt(costo) || '[COSTO_PROTECCION]';
         }
 
         function vdUpdateProductLabels() {
@@ -1610,39 +1720,459 @@
             return edad;
         }
 
+        /** Helper: muestra feedback visual en tiempo real (borde rojo/verde + mensaje) */
+        function vdMostrarFeedbackCampo(el, valido, mensaje) {
+            if (!el) return;
+            el.classList.remove('border-red-500', 'border-green-500');
+            el.classList.add(valido ? 'border-green-500' : 'border-red-500');
+            let msgEl = document.getElementById((el.id || 'vd-msg') + '-msg');
+            if (!msgEl && el.id) {
+                msgEl = document.createElement('p');
+                msgEl.id = el.id + '-msg';
+                msgEl.className = 'text-sm mt-1';
+                el.parentNode.appendChild(msgEl);
+            }
+            if (msgEl) {
+                msgEl.textContent = mensaje || '';
+                msgEl.className = 'text-sm mt-1 ' + (valido ? 'text-green-600' : 'text-red-600');
+                msgEl.classList.toggle('hidden', !mensaje);
+            }
+        }
+
+        /** Validador EMAIL - tiempo real */
+        function vdValidarEmail() {
+            const el = document.getElementById('vd-email-cliente');
+            const v = (el?.value || '').trim();
+            if (!v) { vdMostrarFeedbackCampo(el, false, 'El correo es requerido.'); return false; }
+            const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!regex.test(v)) { vdMostrarFeedbackCampo(el, false, 'Formato de correo inválido.'); return false; }
+            vdMostrarFeedbackCampo(el, true, '');
+            return true;
+        }
+
+        /** Validador COTIZADOR - tiempo real */
+        function vdValidarCotizador() {
+            const canonEl = document.getElementById('vd-canon');
+            const costoEl = document.getElementById('vd-costo-proteccion');
+            const canon = parseFloat(canonEl?.value) || 0;
+            const costo = parseFloat(costoEl?.value) || 0;
+            if (canon <= 0) { vdMostrarFeedbackCampo(canonEl, false, 'El canon debe ser mayor a 0.'); return false; }
+            vdMostrarFeedbackCampo(canonEl, true, '');
+            if (costo <= 0) { vdMostrarFeedbackCampo(costoEl, false, 'El costo de protección debe ser mayor a 0.'); return false; }
+            vdMostrarFeedbackCampo(costoEl, true, '');
+            return true;
+        }
+
+        /** Validador AUTORIZA DATOS - tiempo real (NO = suspender) */
+        function vdValidarAutorizaDatos() {
+            const val = document.querySelector('input[name="vd-autoriza-datos"]:checked')?.value;
+            const cont = document.getElementById('vd-autoriza-datos-msg');
+            if (!cont) return val === 'si';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-exclamation-triangle mr-1"></i>El cliente NO autorizó. La gestión debe SUSPENDERSE.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador P1 LÍCITO (Vida) - NO = no asegurable */
+        function vdValidarP1Licito() {
+            const val = document.querySelector('input[name="vd-p1-licito"]:checked')?.value;
+            const cont = document.getElementById('vd-p1-licito-msg');
+            if (!cont) return val !== 'no';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. Actividades no lícitas. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador Información Médica (Vida) - condiciones que implican NO ASEGURABLE */
+        function vdValidarInfoMedica() {
+            const condNoAseg = [
+                { name: 'vd-sida', msg: 'SIDA' },
+                { name: 'vd-vih', msg: 'VIH positivo' }
+            ];
+            const condAdvertencia = [
+                { name: 'vd-cancer', msg: 'Cáncer o tumores' },
+                { name: 'vd-derrame', msg: 'Derrame o trombosis cerebral' },
+                { name: 'vd-psicologicas', msg: 'Enfermedades psicológicas/psiquiátricas' }
+            ];
+            const cont = document.getElementById('vd-info-medica-msg');
+            if (!cont) return true;
+            for (const c of condNoAseg) {
+                const val = document.querySelector(`input[name="${c.name}"]:checked`)?.value;
+                if (val === 'si') {
+                    cont.innerHTML = `<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. ${c.msg}. La gestión debe suspenderse.</span>`;
+                    cont.classList.remove('hidden');
+                    return false;
+                }
+            }
+            for (const c of condAdvertencia) {
+                const val = document.querySelector(`input[name="${c.name}"]:checked`)?.value;
+                if (val === 'si') {
+                    cont.innerHTML = `<span class="text-amber-700 font-medium"><i class="fas fa-exclamation-triangle mr-1"></i>Advertencia: ${c.msg}. Evalúe con el área médica antes de continuar.</span>`;
+                    cont.classList.remove('hidden');
+                    return true;
+                }
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Auto-detecta franquicia por número y valida (medio de pago) */
+        function vdAutoFranquiciaYValidar() {
+            const canal = document.getElementById('vd-canal-descuento')?.value;
+            const numEl = document.getElementById('vd-numero-cuenta');
+            const franqEl = document.getElementById('vd-franquicia-descuento');
+            if (canal === 'Tarjeta Credito' && numEl && franqEl) {
+                const franq = vdDetectarFranquiciaPorNumero(numEl.value);
+                if (franq && franqEl.value !== franq) {
+                    franqEl.value = franq;
+                    const opt = franqEl.querySelector(`option[value="${franq}"]`);
+                    if (opt) { franqEl.value = franq; franqEl.classList.add('border-green-500'); }
+                }
+            }
+            vdValidateAccountNumber();
+            vdValidarDescuento();
+        }
+
+        /** Detecta franquicia por BIN (primeros dígitos de tarjeta) */
+        function vdDetectarFranquiciaPorNumero(num) {
+            const n = (num || '').replace(/[\s-]/g, '');
+            if (n.length < 4) return '';
+            const d1 = n.charAt(0);
+            const d2 = n.substring(0, 2);
+            const d4 = n.substring(0, 4);
+            const d4n = parseInt(d4, 10);
+            if (d1 === '4') return 'VISA';
+            if (d2 === '34' || d2 === '37') return 'AMERICAN EXPRESS';
+            if (d2 === '36' || d2 === '38') return 'DINERS CLUB';
+            if (d4n >= 3000 && d4n <= 3059) return 'DINERS CLUB';
+            if (d2 === '51' || d2 === '52' || d2 === '53' || d2 === '54' || d2 === '55') return 'MASTER CARD';
+            if (d4n >= 2221 && d4n <= 2720) return 'MASTER CARD';
+            return '';
+        }
+
+        /** Validador P2 PENAL (Vida) - NO = no asegurable */
+        function vdValidarP2Penal() {
+            const val = document.querySelector('input[name="vd-p2-penal"]:checked')?.value;
+            const cont = document.getElementById('vd-p2-penal-msg');
+            if (!cont) return val !== 'no';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. Proceso penal. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador DES AUTORIZA (Desempleo etapa 2) - NO = suspender */
+        function vdValidarDesAutoriza() {
+            const val = document.querySelector('input[name="vd-des-autoriza"]:checked')?.value;
+            const cont = document.getElementById('vd-des-autoriza-msg');
+            if (!cont) return val === 'si';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-exclamation-triangle mr-1"></i>El cliente NO autorizó. La gestión debe SUSPENDERSE.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador TIPO VINCULACIÓN (Desempleo) - No asegurable / No autoriza = suspender */
+        function vdValidarTipoVinculacion() {
+            const val = document.querySelector('input[name="vd-tipo-vinculacion"]:checked')?.value;
+            const cont = document.getElementById('vd-tipo-vinculacion-msg');
+            if (!cont) return !['No asegurable','No autoriza el tratamiento de datos'].includes(val);
+            if (val === 'No asegurable' || val === 'No autoriza el tratamiento de datos') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE / NO AUTORIZA. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador OCUPACIÓN LÍCITA (Desempleo) - NO = no asegurable */
+        function vdValidarOcupacionLicita() {
+            const val = document.querySelector('input[name="vd-ocupacion-licita"]:checked')?.value;
+            const cont = document.getElementById('vd-ocupacion-licita-msg');
+            if (!cont) return val !== 'no';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. Ocupación no lícita. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador y gestión BENEFICIARIOS - suma 100%, bloqueo y auto % */
+        function vdValidarBeneficiarios() {
+            const b1 = document.getElementById('vd-ben1-designacion');
+            const b2 = document.getElementById('vd-ben2-designacion');
+            const b3 = document.getElementById('vd-ben3-designacion');
+            const c2 = document.getElementById('vd-ben2-container');
+            const c3 = document.getElementById('vd-ben3-container');
+            let d1 = parseFloat(b1?.value) || 0;
+            let d2 = parseFloat(b2?.value) || 0;
+            let d3 = parseFloat(b3?.value) || 0;
+
+            if (d1 >= 100) {
+                if (b1) b1.value = 100;
+                d1 = 100;
+                if (b2) { b2.value = 0; b2.disabled = true; }
+                if (b3) { b3.value = 0; b3.disabled = true; }
+                if (c2) c2.classList.add('opacity-50', 'pointer-events-none');
+                if (c3) c3.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                if (b2) b2.disabled = false;
+                if (c2) c2.classList.remove('opacity-50', 'pointer-events-none');
+                const restante12 = 100 - d1;
+                if (d2 >= restante12) {
+                    if (b2) b2.value = restante12;
+                    d2 = restante12;
+                    if (b3) { b3.value = 0; b3.disabled = true; }
+                    if (c3) c3.classList.add('opacity-50', 'pointer-events-none');
+                } else {
+                    if (b3) b3.disabled = false;
+                    if (c3) c3.classList.remove('opacity-50', 'pointer-events-none');
+                    const auto3 = 100 - d1 - d2;
+                    if (auto3 >= 0 && b3 && !b3.disabled) b3.value = Math.round(auto3);
+                }
+            }
+            d1 = parseFloat(b1?.value) || 0;
+            d2 = parseFloat(b2?.value) || 0;
+            d3 = parseFloat(b3?.value) || 0;
+            const sum = d1 + d2 + d3;
+            const msgEl = document.getElementById('vd-ben-sum-msg');
+            const restEl = document.getElementById('vd-ben-restante');
+            if (restEl) { restEl.textContent = 'Restante: ' + (100 - sum) + '%'; restEl.classList.remove('hidden'); }
+            if (!msgEl) return sum === 100;
+            if (sum !== 100) {
+                msgEl.textContent = 'La suma debe ser 100% (actual: ' + sum + '%)';
+                msgEl.classList.remove('hidden');
+                return false;
+            }
+            msgEl.textContent = '';
+            msgEl.classList.add('hidden');
+            return true;
+        }
+
+        /** Sugiere % para ben2 cuando ben1 cambia */
+        function vdSugerirBen2() {
+            const d1 = parseFloat(document.getElementById('vd-ben1-designacion')?.value) || 0;
+            const b2 = document.getElementById('vd-ben2-designacion');
+            if (b2 && d1 > 0 && d1 < 100) b2.placeholder = 'Ej: ' + (100 - d1) + '%';
+        }
+
+        /** Calcula IMC y asegurabilidad en tiempo real (base CRM) */
+        function vdCalcularIMC() {
+            const p = parseFloat(document.getElementById('vd-peso')?.value);
+            const e = parseFloat(document.getElementById('vd-estatura')?.value) / 100;
+            const imcEl = document.getElementById('vd-imc');
+            const asegEl = document.getElementById('vd-asegurable');
+            if (!p || !e || e <= 0) {
+                if (imcEl) imcEl.value = '';
+                if (asegEl) { asegEl.value = ''; asegEl.placeholder = 'Ingrese peso y estatura'; asegEl.className = 'w-full border rounded-lg px-3 py-2 font-semibold text-center'; }
+                return;
+            }
+            const imc = p / (e * e);
+            if (imcEl) imcEl.value = imc.toFixed(2);
+            let status = '';
+            let cls = 'w-full border rounded-lg px-3 py-2 font-semibold text-center ';
+            if (imc > 15 && imc < 30) {
+                status = 'ASEGURABLE';
+                cls += 'bg-green-100 text-green-800 border-green-300';
+            } else if (imc >= 30 && imc < 31) {
+                status = 'ASEGURABLE CON CONSULTA MÉDICA';
+                cls += 'bg-amber-100 text-amber-800 border-amber-300';
+            } else {
+                status = 'NO ASEGURABLE';
+                cls += 'bg-red-100 text-red-800 border-red-300';
+            }
+            if (asegEl) { asegEl.value = status; asegEl.className = cls; asegEl.placeholder = ''; }
+        }
+
+        /** Configuración longitudes cuenta/tarjeta por entidad (base CRM El Libertador) */
+        const vdAccountLengthConfig = {
+            "AV VILLAS": { "Cuenta Ahorros": [9] },
+            "BANCO CAJA SOCIAL": { "Cuenta Ahorros": [11] },
+            "BANCO DAVIVIENDA": { "Cuenta Ahorros": [12], "Cuenta Corriente": [12] },
+            "BANCO DE BOGOTA": { "Cuenta Ahorros": [9, 10, 11], "Cuenta Corriente": [9, 10, 11] },
+            "BANCO FALABELLA": { "Cuenta Ahorros": [16], "Tarjeta Credito": [16] },
+            "BANCOLOMBIA": { "Cuenta Ahorros": [11], "Cuenta Corriente": [11] },
+            "BANCO OCCIDENTE": { "Cuenta Ahorros": [9] },
+            "BANCO POPULAR": { "Cuenta Ahorros": [9] },
+            "BANCO SCOTIABANK": { "Cuenta Ahorros": [9], "Cuenta Corriente": [9] },
+            "BBVA": { "Cuenta Ahorros": [9], "Cuenta Corriente": [9] },
+            "CITIBANK": { "Cuenta Ahorros": [10], "Cuenta Corriente": [10] },
+            "CITY BANK": { "Cuenta Ahorros": [10], "Cuenta Corriente": [10] },
+            "COLPATRIA": { "Cuenta Ahorros": [10], "Cuenta Corriente": [10] },
+            "CORPBANCA": { "Cuenta Ahorros": [10], "Cuenta Corriente": [9] },
+            "DAVIPLATA": { "Cuenta Ahorros": [10] },
+            "GNB": { "Cuenta Ahorros": [7, 8, 9, 10, 11, 12], "Cuenta Corriente": [7, 8, 9, 10, 11, 12] },
+            "GNB SUDAMERIS": { "Cuenta Ahorros": [7, 8, 9, 10, 11, 13], "Cuenta Corriente": [7, 8, 9, 10, 11, 13] },
+            "HSBC": { "Cuenta Ahorros": [12, 15], "Cuenta Corriente": [12, 15] },
+            "ITAU": { "Cuenta Ahorros": [9], "Cuenta Corriente": [9] },
+            "NEQUI": { "Cuenta Ahorros": [10] },
+            "SUDAMERIS": { "Cuenta Ahorros": [7, 8, 9, 10, 11, 13], "Cuenta Corriente": [7, 8, 9, 10, 11, 13] },
+            "Tarjeta Credito - Default": { "Tarjeta Credito": [16] },
+            "DINERS CLUB": { "Tarjeta Credito": [14] },
+            "AMERICAN EXPRESS": { "Tarjeta Credito": [16] },
+            "VISA": { "Tarjeta Credito": [16] },
+            "MASTER CARD": { "Tarjeta Credito": [16] }
+        };
+
+        /** Validador de cuenta/tarjeta - igual que base CRM (validateAccountNumber) */
+        function vdValidateAccountNumber() {
+            const canal = document.getElementById('vd-canal-descuento')?.value;
+            const entidad = document.getElementById('vd-entidad-bancaria')?.value;
+            const franquicia = document.getElementById('vd-franquicia-descuento')?.value;
+            const numEl = document.getElementById('vd-numero-cuenta');
+            const digitosEl = document.getElementById('vd-cuenta-digitos');
+            const numero = (numEl?.value || '').replace(/[\s-]/g, '');
+            const numeroLength = numero.length;
+
+            numEl?.classList.remove('border-red-500', 'border-green-500');
+            if (digitosEl) digitosEl.textContent = '';
+            digitosEl?.classList.remove('text-red-600', 'text-green-600', 'text-gray-500');
+
+            let expectedLengths = [];
+            let feedbackMessage = '';
+            let isValid = true;
+
+            if (canal === 'Tarjeta Credito') {
+                if (entidad && vdAccountLengthConfig[entidad] && vdAccountLengthConfig[entidad]['Tarjeta Credito']) {
+                    expectedLengths = vdAccountLengthConfig[entidad]['Tarjeta Credito'];
+                } else if (franquicia && vdAccountLengthConfig[franquicia] && vdAccountLengthConfig[franquicia]['Tarjeta Credito']) {
+                    expectedLengths = vdAccountLengthConfig[franquicia]['Tarjeta Credito'];
+                } else {
+                    expectedLengths = [16];
+                    if (!franquicia) {
+                        isValid = false;
+                        feedbackMessage = 'Por favor, seleccione la Franquicia de la tarjeta.';
+                    }
+                }
+            } else if (canal === 'Cuenta Ahorros' || canal === 'Cuenta Corriente') {
+                if (entidad && vdAccountLengthConfig[entidad] && vdAccountLengthConfig[entidad][canal]) {
+                    expectedLengths = vdAccountLengthConfig[entidad][canal];
+                } else {
+                    isValid = false;
+                    feedbackMessage = 'Seleccione la entidad bancaria y el tipo de cuenta.';
+                }
+            } else {
+                isValid = false;
+                feedbackMessage = 'Seleccione el Canal de Descuento.';
+            }
+
+            if (isValid && expectedLengths.length > 0) {
+                if (!expectedLengths.includes(numeroLength)) {
+                    isValid = false;
+                    feedbackMessage = expectedLengths.length === 1 ? `Debe tener ${expectedLengths[0]} dígitos.` : `Debe tener ${expectedLengths.join(' o ')} dígitos.`;
+                } else {
+                    feedbackMessage = 'Número de dígitos correcto.';
+                }
+            }
+
+            if (feedbackMessage && numEl && digitosEl) {
+                digitosEl.textContent = feedbackMessage + (numeroLength > 0 ? ` (Dígitos: ${numeroLength})` : '');
+                if (isValid) {
+                    numEl.classList.add('border-green-500');
+                    digitosEl.classList.add('text-green-600');
+                } else {
+                    numEl.classList.add('border-red-500');
+                    digitosEl.classList.add('text-red-600');
+                }
+            } else if (numeroLength > 0 && digitosEl) {
+                digitosEl.textContent = 'Dígitos: ' + numeroLength;
+                digitosEl.classList.add('text-gray-500');
+            }
+
+            return isValid;
+        }
+
+        /** Validador DESCUENTO DÉBITO - tiempo real (prima + cuenta) */
+        function vdValidarDescuento() {
+            const primaEl = document.getElementById('vd-valor-prima');
+            const prima = parseFloat(primaEl?.value) || 0;
+            const cuentaOk = vdValidateAccountNumber();
+            const primaOk = prima > 0;
+            if (primaEl?.value && prima <= 0) vdMostrarFeedbackCampo(primaEl, false, 'La prima debe ser mayor a 0.');
+            else if (primaEl && prima > 0) vdMostrarFeedbackCampo(primaEl, true, '');
+            return cuentaOk && primaOk;
+        }
+
         function vdValidarEdad() {
-            const fecha = document.getElementById('vd-fecha-nacimiento').value;
+            const fechaEl = document.getElementById('vd-fecha-nacimiento');
+            const fecha = fechaEl?.value;
             const disp = document.getElementById('vd-edad-display');
             if (!fecha) {
-                Swal.fire('Validación', 'Ingrese la fecha de nacimiento.', 'warning');
-                document.getElementById('vd-fecha-nacimiento').classList.add('border-red-500');
-                return;
+                vdMostrarFeedbackCampo(fechaEl, false, 'Ingrese la fecha de nacimiento.');
+                if (disp) disp.textContent = '--';
+                return false;
             }
-            document.getElementById('vd-fecha-nacimiento').classList.remove('border-red-500');
             const edad = vdCalcularEdad(fecha);
-            if (edad === null) { disp.textContent = 'Fecha inválida'; return; }
-            disp.textContent = edad + ' años';
+            if (edad === null) {
+                vdMostrarFeedbackCampo(fechaEl, false, 'Fecha inválida.');
+                if (disp) disp.textContent = 'Fecha inválida';
+                return false;
+            }
+            if (disp) disp.textContent = edad + ' años';
             if (edad < 18) {
-                Swal.fire('No asegurable', 'El cliente es menor de 18 años. La gestión debe suspenderse.', 'error');
-                disp.classList.add('text-red-600');
-                return;
+                vdMostrarFeedbackCampo(fechaEl, false, 'NO ASEGURABLE: Menor de 18 años. La gestión debe suspenderse.');
+                disp?.classList.add('text-red-600');
+                return false;
             }
             if (edad > 79) {
-                Swal.fire('No asegurable', 'El cliente es mayor de 79 años. La gestión será desistida.', 'warning');
-                disp.classList.add('text-red-600');
-                return;
+                vdMostrarFeedbackCampo(fechaEl, false, 'NO ASEGURABLE: Mayor de 79 años. La gestión será desistida.');
+                disp?.classList.add('text-red-600');
+                return false;
             }
             if (edad > 60 && vdGetProducto() === 'vida') {
-                Swal.fire('No asegurable', 'Para Seguro de Vida el cliente no puede ser mayor de 60 años. Ofrezca Seguro de Desempleo.', 'warning');
-                disp.classList.add('text-amber-600');
-                return;
+                vdMostrarFeedbackCampo(fechaEl, false, 'NO ASEGURABLE: Para Vida no puede ser mayor de 60 años. Ofrezca Seguro de Desempleo.');
+                disp?.classList.add('text-amber-600');
+                return false;
             }
-            disp.classList.remove('text-red-600', 'text-amber-600');
+            vdMostrarFeedbackCampo(fechaEl, true, '');
+            disp?.classList.remove('text-red-600', 'text-amber-600');
+            return true;
         }
 
         function vdResetForms() {
             document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(el => { if (el.type !== 'radio' && el.type !== 'checkbox') el.value = ''; });
             document.querySelectorAll('#modalLead-vd input[type="radio"], #modalLead-vd input[type="checkbox"]').forEach(el => el.checked = false);
+            document.querySelectorAll('#modalLead-vd [id$="-msg"]').forEach(el => { el.innerHTML = ''; el.classList.add('hidden'); });
+            document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(el => { el.classList.remove('border-red-500', 'border-green-500'); });
+            const edadDisp = document.getElementById('vd-edad-display');
+            if (edadDisp) edadDisp.textContent = '--';
+            const asegEl = document.getElementById('vd-asegurable');
+            if (asegEl) { asegEl.value = ''; asegEl.placeholder = 'Ingrese peso y estatura'; asegEl.className = 'w-full border rounded-lg px-3 py-2 font-semibold text-center'; }
+            const digitosEl = document.getElementById('vd-cuenta-digitos');
+            if (digitosEl) { digitosEl.textContent = ''; digitosEl.className = 'text-sm mt-1'; }
+            const franq = document.getElementById('vd-franquicia-descuento');
+            if (franq) franq.required = false;
+            ['vd-ben2-designacion','vd-ben3-designacion'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.disabled = false; el.value = ''; }
+            });
+            document.getElementById('vd-ben2-container')?.classList.remove('opacity-50','pointer-events-none');
+            document.getElementById('vd-ben3-container')?.classList.remove('opacity-50','pointer-events-none');
+            document.getElementById('vd-ben-restante')?.classList.add('hidden');
         }
 
         function vdShowStep(step) {
@@ -1698,12 +2228,16 @@
                 const p2 = document.querySelector('input[name="vd-p2-penal"]:checked')?.value;
                 if (p1 === 'no') { Swal.fire('No asegurable', 'Las actividades no son lícitas. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
                 if (p2 === 'no') { Swal.fire('No asegurable', 'El cliente ha tenido proceso penal. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                const asegurable = document.getElementById('vd-asegurable')?.value || '';
+                if (asegurable === 'NO ASEGURABLE') { Swal.fire('No asegurable', 'El IMC indica que el cliente no es asegurable. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
                 const peso = parseFloat(document.getElementById('vd-peso').value);
                 const est = parseFloat(document.getElementById('vd-estatura').value);
                 const freq = document.getElementById('vd-frecuencia-deporte').value;
                 if (!peso || !est) { Swal.fire('Validación', 'Ingrese peso y estatura.', 'warning'); return false; }
                 if (!freq) { Swal.fire('Validación', 'Seleccione frecuencia de deportes.', 'warning'); return false; }
-                if (!document.querySelector('input[name="vd-hipertension"]:checked')) { Swal.fire('Validación', 'Responda todas las preguntas médicas.', 'warning'); return false; }
+                const medReq = ['vd-hipertension','vd-colesterol','vd-diabetes','vd-coronaria','vd-insuficiencia-renal','vd-cancer','vd-derrame','vd-psicologicas','vd-sida','vd-vih','vd-diagnostico'];
+                for (const n of medReq) { if (!document.querySelector(`input[name="${n}"]:checked`)) { Swal.fire('Validación', 'Responda todas las preguntas médicas.', 'warning'); return false; } }
+                if (document.querySelector('input[name="vd-sida"]:checked')?.value === 'si' || document.querySelector('input[name="vd-vih"]:checked')?.value === 'si') { Swal.fire('No asegurable', 'SIDA o VIH positivo. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
                 if (!document.getElementById('vd-autoriza-info-medica').checked) { Swal.fire('Validación', 'Debe autorizar el tratamiento de información médica.', 'warning'); return false; }
             }
             if (step === 2 && !isVida) {
@@ -1727,7 +2261,11 @@
                 const num = document.getElementById('vd-numero-cuenta').value?.trim();
                 const prima = document.getElementById('vd-valor-prima').value;
                 if (!canal || !entidad || !num || !prima) { Swal.fire('Validación', 'Complete todos los campos de descuento.', 'warning'); return false; }
-                if (canal === 'Tarjeta Credito' && !document.getElementById('vd-fecha-venc-tc').value) { Swal.fire('Validación', 'Ingrese fecha de vencimiento de la tarjeta.', 'warning'); return false; }
+                if (canal === 'Tarjeta Credito') {
+                    if (!document.getElementById('vd-franquicia-descuento')?.value) { Swal.fire('Validación', 'Seleccione la Franquicia de la tarjeta.', 'warning'); return false; }
+                    if (!document.getElementById('vd-fecha-venc-tc').value) { Swal.fire('Validación', 'Ingrese fecha de vencimiento de la tarjeta.', 'warning'); return false; }
+                }
+                if (!vdValidateAccountNumber()) { Swal.fire('Validación', 'El número de cuenta/tarjeta no cumple con la longitud requerida para la entidad seleccionada.', 'warning'); return false; }
                 if (!document.getElementById('vd-autoriza-debito').checked) { Swal.fire('Validación', 'Debe autorizar el descuento débito.', 'warning'); return false; }
                 if (!document.getElementById('vd-entiende-mora').checked) { Swal.fire('Validación', 'Debe confirmar que entiende la mora.', 'warning'); return false; }
             }
