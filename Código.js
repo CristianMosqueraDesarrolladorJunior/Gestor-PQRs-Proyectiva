@@ -1,438 +1,309 @@
 /**
- * BACKEND - PROYECTIVA PQR MANAGER
+ * PROYECTIVA OS - BACKEND UNIFICADO Y ENRUTAMIENTO RBAC
+ * Solo Backend. Optimizado para lectura/escritura de módulos específicos.
  */
 
-const SHEET_ID = '1HKJdbNqOesORaQuPpbYQhpOkrLX5_kXNhhILuC256iM';
-const SHEET_PQR = SpreadsheetApp.openById(SHEET_ID).getSheetByName('PQRs');
-const SHEET_GESTION = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Gestion');
-const Leads = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Leads');
-const correoActivo = Session.getActiveUser().getEmail();
+const CONFIG = {
+  SPREADSHEET_ID: '1HKJdbNqOesORaQuPpbYQhpOkrLX5_kXNhhILuC256iM',
+  SHEETS: {
+    GESTION: 'Gestion',
+    PQR: 'PQRs',
+    LEADS: 'Leads',
+    RENOVACIONES: 'DataRenovaciones'  // Cambiar a 'JSON' o nombre real de la hoja
+  }
+};
 
+function getSheet(sheetName) {
+  return SpreadsheetApp.openById(CONFIG.SPREADSHEET_ID).getSheetByName(sheetName);
+}
 
+function safeJSONParse(str, defaultVal) {
+  if (defaultVal === undefined) defaultVal = {};
+  try {
+    if (!str || String(str).trim() === '') return defaultVal;
+    var cleanStr = String(str).trim();
+    if (cleanStr.indexOf(")]}',") === 0) cleanStr = cleanStr.substring(5);
+    return JSON.parse(cleanStr);
+  } catch (e) {
+    return defaultVal;
+  }
+}
 
+// =========================================================================
+// 1. ENRUTADOR PRINCIPAL
+// =========================================================================
+function getDataUser() {
+  try {
+    var correoActivo = Session.getActiveUser().getEmail() || '';
+    var sheetGestion = getSheet(CONFIG.SHEETS.GESTION);
+    var dataGestion = sheetGestion.getDataRange().getDisplayValues();
 
-// 1. Servir la aplicación Web
+    var filaUsuario = -1;
+    var expertise, nombreAnalista, novedad;
+
+    for (var i = 1; i < dataGestion.length; i++) {
+      var correoCell = (dataGestion[i][2] || '').toString().trim().toLowerCase();
+      if (correoCell === correoActivo.trim().toLowerCase()) {
+        filaUsuario = i;
+        nombreAnalista = (dataGestion[i][1] || '').toString().trim();
+        expertise = (dataGestion[i][3] || '').toString().trim();
+        novedad = (dataGestion[i][4] || '').toString().trim();
+        break;
+      }
+    }
+
+    if (filaUsuario === -1) {
+      return JSON.stringify({ status: 'error', message: 'Usuario no autorizado en matriz de Gestión.' });
+    }
+
+    var dataFront = [];
+    var listUsuarios = [];
+
+    switch (expertise) {
+      case 'superAdmin':
+        listUsuarios = getUsuariosGestion(expertise);
+        dataFront = getDataForSuperAdmin();
+        break;
+      case 'adminRenovations':
+        listUsuarios = getUsuariosGestion(expertise);
+        dataFront = getRenovationsData(true, null);
+        break;
+      case 'adminPQR':
+        listUsuarios = getUsuariosGestion(expertise);
+        dataFront = getPQRsData(true, null);
+        break;
+      case 'adminVidaDesempleo':
+      case 'Coordinadora':
+        listUsuarios = getUsuariosGestion('adminVidaDesempleo');
+        dataFront = getVDData(true, null, null);
+        break;
+      case 'pqr':
+        listUsuarios = getUsuariosGestion('pqr');
+        dataFront = getPQRsData(false, correoActivo);
+        break;
+      case 'Renovations':
+        dataFront = getRenovationsData(false, correoActivo);
+        break;
+      case 'Seguro de Desempleo':
+        dataFront = getVDData(false, correoActivo, 'Seguro de Desempleo');
+        break;
+      case 'Seguro de Vida':
+        dataFront = getVDData(false, correoActivo, 'Seguro de Vida');
+        break;
+      default:
+        return JSON.stringify({ status: 'error', message: 'Rol (' + expertise + ') no tiene módulo asignado.' });
+    }
+
+    return JSON.stringify({
+      status: 'success',
+      userInfo: { role: expertise, nombre: nombreAnalista, correo: correoActivo, novedad: novedad },
+      data: dataFront,
+      listUsuarios: listUsuarios
+    });
+  } catch (error) {
+    return JSON.stringify({ status: 'error', message: error.toString() });
+  }
+}
+
+// =========================================================================
+// 2. CONSTRUCTOR SUPERADMIN
+// =========================================================================
+function getDataForSuperAdmin() {
+  return {
+    adminVD: getVDData(true, null, null),
+    adminPQR: getPQRsData(true, null),
+    adminRenovations: getRenovationsData(true, null)
+  };
+}
+
+// =========================================================================
+// 3. EXTRACTORES POR MÓDULO
+// =========================================================================
+function getPQRsData(isAdmin, correoAsesor) {
+  var sheet = getSheet(CONFIG.SHEETS.PQR);
+  var data = sheet.getDataRange().getValues();
+  data.shift();
+
+  var pqrs = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var asesor = (row[6] || '').toString().trim();
+    if (!isAdmin && asesor.toLowerCase() !== (correoAsesor || '').toLowerCase()) continue;
+
+    pqrs.push({
+      rowNumber: i + 2,
+      id: row[0],
+      tipo: row[1],
+      fechaCreacion: row[2],
+      informacion: safeJSONParse(row[3], {}),
+      estado: row[4] || 'Pendiente',
+      prioridad: row[5] || 'Media',
+      asesor: asesor || 'Sin Asignar',
+      fechaAsignacion: row[7] || '',
+      fechaCierre: row[8] || '',
+      historial: safeJSONParse(row[9], []),
+      sla: row[10] || ''
+    });
+  }
+  pqrs.sort(function(a, b) { return new Date(b.fechaCreacion) - new Date(a.fechaCreacion); });
+  return pqrs;
+}
+
+function getVDData(isAdmin, correoAsesor, tipoProducto) {
+  var sheet = getSheet(CONFIG.SHEETS.LEADS);
+  var data = sheet.getDataRange().getDisplayValues();
+  data.shift();
+
+  var leads = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var asesor = (row[3] || '').toString().trim();
+    var producto = (row[6] || '').toString().trim();
+
+    if (!isAdmin && asesor.toLowerCase() !== (correoAsesor || '').toLowerCase()) continue;
+    if (tipoProducto && producto !== tipoProducto) continue;
+
+    var leadData = safeJSONParse(row[2], {});
+    var gestiones = safeJSONParse(row[7], []);
+    if (!Array.isArray(gestiones)) gestiones = [gestiones];
+
+    leads.push({
+      rowNumber: i + 2,
+      fechaIngreso: row[0],
+      numeroSolicitud: row[1],
+      poliza: leadData.poliza || '',
+      nombre: leadData.nombre || '',
+      id: leadData.id || '',
+      telefono: leadData.telefono || '',
+      correo: leadData.correo || '',
+      ciudad: leadData.ciudad || '',
+      direccion: leadData.direccion || '',
+      tipoInmueble: leadData.tipoInmueble || '',
+      canon: leadData.canon || '',
+      fechaRadicacion: leadData.fechaRadicacion || '',
+      fechaAprobacion: leadData.fechaAprobacion || '',
+      estado: leadData.estado || '',
+      asesorAsignado: asesor,
+      etapaFunel: row[4],
+      estadoGestion: row[5],
+      productoAsignado: producto,
+      historiaGestiones: gestiones,
+      datosVida: safeJSONParse(row[9], {}),
+      datosDesempleo: safeJSONParse(row[10], {}),
+      tipoDocumento: leadData.tipoDocumento || '',
+      cuota: leadData.cuota || '',
+      nombreInmobiliaria: leadData.nombreInmobiliaria || '',
+      isActive: (row[5] !== 'VENTA' && row[5] !== 'DESISTIDO')
+    });
+  }
+  leads.sort(function(a, b) { return new Date(b.fechaIngreso) - new Date(a.fechaIngreso); });
+  return leads;
+}
+
+function getRenovationsData(isAdmin, correoAsesor) {
+  var sheet = getSheet(CONFIG.SHEETS.RENOVACIONES);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getDisplayValues();
+  data.shift();
+
+  var renovaciones = [];
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    var asesor = (row[2] || '').toString().trim();
+    var segmento = (row[3] || '').toString().trim();
+    var estadoGestion = (row[4] || '').toString().trim();
+
+    if (!isAdmin && asesor.toLowerCase() !== (correoAsesor || '').toLowerCase()) continue;
+    if (!isAdmin && segmento !== 'SIN SEGMENTO' && segmento !== 'PROPIETARIO' && estadoGestion !== 'CORRECCION' && estadoGestion !== 'recuperado') continue;
+    if (!isAdmin && (estadoGestion === 'VENCIDO' || estadoGestion === 'Caso Especial' || estadoGestion === 'Enviar a Expedicion' || estadoGestion === 'Poliza Renovada')) continue;
+
+    renovaciones.push({
+      rowNumber: i + 2,
+      fechaIngreso: row[0],
+      leadData: safeJSONParse(row[1], {}),
+      nombreAgente: asesor,
+      etapaFunel: segmento,
+      estadoGestion: estadoGestion,
+      historialGestiones: safeJSONParse(row[6], []),
+      datosInquilino: safeJSONParse(row[7], { nombre: 'Sin Datos', identificacion: '' })
+    });
+  }
+  return renovaciones;
+}
+
+// =========================================================================
+// 4. GET USUARIOS (Corregido: rolesPermitidos + iteración sobre data)
+// =========================================================================
+function getUsuariosGestion(adminType) {
+  var rolesPermitidos = [];
+  switch (adminType) {
+    case 'superAdmin':
+      rolesPermitidos = ['Autos', 'Seguro de Contenidos', 'Coordinadora', 'Seguro de Desempleo', 'CorreccionesBI', 'Renovations', 'Seguro de Vida', 'pqr', 'Admin VD', 'Admin PQR', 'Admin Renovations', 'Admin General'];
+      break;
+    case 'adminRenovations':
+      rolesPermitidos = ['CorreccionesBI', 'Renovations', 'Admin Renovations'];
+      break;
+    case 'adminPQR':
+      rolesPermitidos = ['pqr', 'Admin PQR'];
+      break;
+    case 'adminVidaDesempleo':
+      rolesPermitidos = ['Coordinadora', 'Seguro de Desempleo', 'Seguro de Vida', 'Admin VD'];
+      break;
+    case 'pqr':
+      rolesPermitidos = ['pqr'];
+      break;
+    default:
+      return [];
+  }
+
+  var sheet = getSheet(CONFIG.SHEETS.GESTION);
+  if (!sheet) return [];
+  var data = sheet.getDataRange().getValues();
+  var usuarios = [];
+
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    var rol = (row[3] || '').toString().trim();
+    var correo = (row[2] || '').toString().trim();
+
+    if (!correo) continue;
+    if (rolesPermitidos.indexOf(rol) === -1) continue;
+
+    usuarios.push({
+      rowNumber: i + 1,
+      no: row[0],
+      nombre: (row[1] || '').toString().trim(),
+      correo: correo,
+      seguro: rol,
+      novedad: (row[4] || '').toString().trim()
+    });
+  }
+  return usuarios;
+}
+
+// =========================================================================
+// 5. SERVIR APLICACIÓN
+// =========================================================================
 function doGet(e) {
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
     .setTitle('Proyectiva - Gestión de PQRs')
-    .setFaviconUrl('https://img.icons8.com/color/48/000000/shield.png') // Icono de escudo/seguro
+    .setFaviconUrl('https://img.icons8.com/color/48/000000/shield.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// 2. Obtener todas las PQRs (Read)
-function getDataUser() {
-  const validarUsuario = SHEET_GESTION.getRange("C2:C").createTextFinder(correoActivo).matchEntireCell(true).ignoreDiacritics(true).findNext();
-
-  if (!validarUsuario) {
-    return JSON.stringify({ status: 'error', message: 'Usuario no autorizado para acceder a los PQRs.' });
-  }
-
-  const filaUsuario = validarUsuario.getRow();
-  const expertise = SHEET_GESTION.getRange(filaUsuario, 4).getDisplayValue();
-  const nombreAnalista = SHEET_GESTION.getRange(filaUsuario, 2).getDisplayValue();
-  const novedad = SHEET_GESTION.getRange(filaUsuario, 5).getDisplayValue();
-
-  let dataFront = [];
-  let dataUsers = {};
-
-  switch (expertise) {
-    case 'superAdmin':
-      dataUsers = getUsuariosGestion(expertise);
-      dataFront = getDataForSuperAdmin();
-      break;
-    case 'adminRenovations':
-      dataUsers = getUsuariosGestion(expertise);
-      dataFront = getDataForAdminRenovations();
-      break;
-    case 'adminPQR':
-      dataUsers = getUsuariosGestion(expertise);
-      dataFront = getDataForAdminPqr();
-      break;
-    case 'adminVidaDesempleo':
-      dataUsers = getUsuariosGestion(expertise);
-      dataFront = getDataForAdminVD();
-      break;
-    case 'pqr':
-      dataUsers = getUsuariosGestion('pqr');
-      dataFront = getPQRsDataForPQR();
-      break;
-    case 'Renovations':
-      dataFront = getRenovations();
-      break;
-    case ('Seguro de Desempleo'):
-      dataFront = getSafeLifeProtec();
-      break;
-    case ('Seguro de Vida'):
-      dataFront = getSafeLifeProtec();
-      break;
-    default:
-      return JSON.stringify({ status: 'error', message: 'Usuario sin rol definido para acceder a los PQRs.' });
-  }
-  var parsed = typeof dataFront === 'string' ? JSON.parse(dataFront) : { data: dataFront };
-  var listData = (dataUsers && typeof dataUsers === 'string') ? JSON.parse(dataUsers) : { data: [] };
-  return JSON.stringify({
-    status: 'success',
-    userInfo: { role: expertise, nombre: nombreAnalista, correo: correoActivo },
-    data: (parsed && parsed.data) ? parsed.data : (Array.isArray(parsed) ? parsed : []),
-    listUsuarios: (listData && listData.data) ? listData.data : []
-  });
-}
-
-function getDataForSuperAdmin() {
-  let adminVD = JSON.parse(getDataForAdminVD()).data;
-  let adminPQR = JSON.parse(getDataForAdminPqr()).data;
-  let adminRenovations = JSON.parse(getDataForAdminRenovations()).data;
-
-  return JSON.stringify({
-    status: 'success', data: {
-      adminVD: adminVD,
-      adminPQR: adminPQR,
-      adminRenovations: adminRenovations
-    }
-  });
-}
-
-function getPQRsDataForPQR() {
-  try {
-    const data = SHEET_PQR.getDataRange().getValues();
-    let dataFiltrada = data.filter(row => row[6] && row[6].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase());
-    const headers = data.shift(); // Remover cabeceras
-
-    let pqrs = dataFiltrada.map((row, index) => {
-      let infoJSON = {};
-      let historialJSON = [];
-
-      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
-      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
-
-      return {
-        rowNumber: index + 2, // Para actualizar la fila exacta luego
-        id: row[0],
-        tipo: row[1],
-        fechaCreacion: row[2],
-        informacion: infoJSON,
-        estado: row[4] || 'Pendiente',
-        prioridad: row[5] || 'Media',
-        asesor: row[6] || 'Sin Asignar',
-        fechaAsignacion: row[7] || '',
-        fechaCierre: row[8] || '',
-        historial: historialJSON,
-        sla: row[10] || ''
-      };
-    });
-
-    // Ordenar por fecha (más recientes primero)
-    pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-    return JSON.stringify({ status: 'success', data: pqrs });
-  } catch (error) {
-    return JSON.stringify({ status: 'error', message: error.toString() });
-  }
-}
-
-function getDataForAdminPqr() {
-  try {
-    const data = SHEET_PQR.getDataRange().getValues();
-    const headers = data.shift(); // Remover cabeceras
-
-    let pqrs = data.map((row, index) => {
-      let infoJSON = {};
-      let historialJSON = [];
-
-      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
-      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
-
-      return {
-        rowNumber: index + 2, // Para actualizar la fila exacta luego
-        id: row[0],
-        tipo: row[1],
-        fechaCreacion: row[2],
-        informacion: infoJSON,
-        estado: row[4] || 'Pendiente',
-        prioridad: row[5] || 'Media',
-        asesor: row[6] || 'Sin Asignar',
-        fechaAsignacion: row[7] || '',
-        fechaCierre: row[8] || '',
-        historial: historialJSON,
-        sla: row[10] || ''
-      };
-      
-    });
-
-    // Ordenar por fecha (más recientes primero)
-    pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-    return JSON.stringify({ status: 'success', data: pqrs });
-  } catch (error) {
-    return JSON.stringify({ status: 'error', message: error.toString() });
-  }
-}
-
-function getDataForAdminRenovations() {
-  try {
-    const data = SHEET_PQR.getDataRange().getValues();
-    const headers = data.shift(); // Remover cabeceras
-
-    let pqrs = data.map((row, index) => {
-      let infoJSON = {};
-      let historialJSON = [];
-
-      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
-      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
-
-      return {
-        rowNumber: index + 2, // Para actualizar la fila exacta luego
-        id: row[0],
-        tipo: row[1],
-        fechaCreacion: row[2],
-        informacion: infoJSON,
-        estado: row[4] || 'Pendiente',
-        prioridad: row[5] || 'Media',
-        asesor: row[6] || 'Sin Asignar',
-        fechaAsignacion: row[7] || '',
-        fechaCierre: row[8] || '',
-        historial: historialJSON,
-        sla: row[10] || ''
-      };
-    });
-
-    // Ordenar por fecha (más recientes primero)
-    pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-    return JSON.stringify({ status: 'success', data: pqrs });
-  } catch (error) {
-    return JSON.stringify({ status: 'error', message: error.toString() });
-  }
-}
-
-function getDataForAdminVD() {
-  try {
-    const data = SHEET_PQR.getDataRange().getValues();
-    const headers = data.shift(); // Remover cabeceras
-
-    let pqrs = data.map((row, index) => {
-      let infoJSON = {};
-      let historialJSON = [];
-
-      try { infoJSON = JSON.parse(row[3] || '{}'); } catch (e) { }
-      try { historialJSON = JSON.parse(row[9] || '[]'); } catch (e) { }
-
-      return {
-        rowNumber: index + 2, // Para actualizar la fila exacta luego
-        id: row[0],
-        tipo: row[1],
-        fechaCreacion: row[2],
-        informacion: infoJSON,
-        estado: row[4] || 'Pendiente',
-        prioridad: row[5] || 'Media',
-        asesor: row[6] || 'Sin Asignar',
-        fechaAsignacion: row[7] || '',
-        fechaCierre: row[8] || '',
-        historial: historialJSON,
-        sla: row[10] || ''
-      };
-    });
-
-    // Ordenar por fecha (más recientes primero)
-    pqrs.sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion));
-    return JSON.stringify({ status: 'success', data: pqrs });
-  } catch (error) {
-    return JSON.stringify({ status: 'error', message: error.toString() });
-  }
-}
-
-function getSafeLifeProtec() {
-  let dataSetPlano = Leads.getRange("A1:O" + Leads.getLastRow()).getDisplayValues();
-  let leadsDelAsesor = dataSetPlano.filter(row => row[3] && row[3].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase());
-
-  dataFront = leadsDelAsesor.filter(row => row[5] !== "VENTA" && row[5] !== "DESISTIDO");
-  dataGestionada = leadsDelAsesor.filter(row => row[5] === "VENTA" || row[5] === "DESISTIDO");
-  let ventas = dataGestionada.filter(row => row[5] === "VENTA")
-  kpiventas = ventas.length
-
-  dataFront = dataFront.map(row => {
-
-    const infoTexto = row[2];
-    const historiaGestiones = row[7];
-    const gestionSeguroVida = row[9];
-    const gestionSeguroDesempleo = row[10];
-    const leadData = JSON.parse(infoTexto);
-
-    let gestiones = [];
-    if (historiaGestiones && String(historiaGestiones).trim() !== "") {
-      let cleanHistoryString = String(historiaGestiones).trim();
-      if (cleanHistoryString.startsWith(")]}',")) {
-        cleanHistoryString = cleanHistoryString.substring(5);
-      }
-      try {
-        gestiones = JSON.parse(cleanHistoryString);
-        gestiones = Array.isArray(gestiones) ? gestiones : [gestiones]; // Asegurar que sea un array
-      } catch (e) {
-        Logger.log("Error parseando historial de gestiones: " + e.message + " Contenido: " + cleanHistoryString);
-        gestiones = [];
-      }
-    }
-
-    const datosVida = JSON.parse(gestionSeguroVida || "{}");
-    const datosDesempleo = JSON.parse(gestionSeguroDesempleo || "{}");
-
-    return {
-      fechaIngreso: row[0],
-      poliza: leadData.poliza || "",
-      numeroSolicitud: row[1],
-      nombre: leadData.nombre || "",
-      id: leadData.id || "",
-      telefono: leadData.telefono || "",
-      correo: leadData.correo || "",
-      ciudad: leadData.ciudad || "",
-      direccion: leadData.direccion || "",
-      tipoInmueble: leadData.tipoInmueble || "",
-      canon: leadData.canon || "",
-      fechaRadicacion: leadData.fechaRadicacion || "",
-      fechaAprobacion: leadData.fechaAprobacion || "",
-      estado: leadData.estado || "",
-      asesorAsignado: row[3],
-      etapaFunel: row[4],
-      estadoGestion: row[5],
-      productoAsignado: row[6],
-      historiaGestiones: gestiones,
-      datosVida: datosVida,
-      datosDesempleo: datosDesempleo,
-      tipoDocumento: leadData.tipoDocumento,
-      cuota: leadData.cuota,
-      nombreInmobiliaria: leadData.nombreInmobiliaria
-    };
-  });
-
-  dataGestionada = dataGestionada.map(row => {
-    const infoTexto = row[2];
-    const historiaGestiones = row[7];
-    const gestionSeguroVida = row[9];
-    const gestionSeguroDesempleo = row[10];
-
-    let leadDataGralString = (infoTexto && String(infoTexto).trim() !== "") ? String(infoTexto).trim() : "{}";
-    if (leadDataGralString.startsWith(")]}',")) {
-      leadDataGralString = leadDataGralString.substring(5);
-    }
-    let leadData = JSON.parse(leadDataGralString);
-
-    let gestiones = [];
-    if (historiaGestiones && String(historiaGestiones).trim() !== "") {
-      let cleanHistoryString = String(historiaGestiones).trim();
-      if (cleanHistoryString.startsWith(")]}',")) {
-        cleanHistoryString = cleanHistoryString.substring(5);
-      }
-      try {
-        gestiones = JSON.parse(cleanHistoryString);
-        gestiones = Array.isArray(gestiones) ? gestiones : [gestiones]; // Asegurar que sea un array
-      } catch (e) {
-        Logger.log("Error parseando historial de gestiones: " + e.message + " Contenido: " + cleanHistoryString);
-        gestiones = [];
-      }
-    }
-
-    const datosVida = JSON.parse(gestionSeguroVida || "{}");
-    const datosDesempleo = JSON.parse(gestionSeguroDesempleo || "{}");
-
-    return {
-      fechaIngreso: row[0],
-      poliza: leadData.poliza || "",
-      numeroSolicitud: row[1],
-      nombre: leadData.nombre || "",
-      id: leadData.id || "",
-      telefono: leadData.telefono || "",
-      correo: leadData.correo || "",
-      ciudad: leadData.ciudad || "",
-      direccion: leadData.direccion || "",
-      tipoInmueble: leadData.tipoInmueble || "",
-      canon: leadData.canon || "",
-      fechaRadicacion: leadData.fechaRadicacion || "",
-      fechaAprobacion: leadData.fechaAprobacion || "",
-      estado: leadData.estado || "",
-      asesorAsignado: row[3],
-      etapaFunel: row[4],
-      estadoGestion: row[5],
-      productoAsignado: row[6],
-      historiaGestiones: gestiones,
-      datosVida: datosVida,
-      datosDesempleo: datosDesempleo,
-      tipoDocumento: leadData.tipoDocumento,
-      cuota: leadData.cuota,
-      nombreInmobiliaria: leadData.nombreInmobiliaria
-    };
-  });
-  totalSolicitudes = dataFront.length + dataGestionada.length
-}
-
-function getRenovations() {
-  const dataSetPlano = DataRenovations.getRange("A1:H" + DataRenovations.getLastRow()).getDisplayValues();
-
-  dataFront = dataSetPlano.filter(row => row[2] && row[2].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase() && (row[3] === "SIN SEGMENTO" || row[3] === "PROPIETARIO" || row[4] === "CORRECCION" || row[4] === "recuperado") && row[4] !== "VENCIDO" && row[4] !== "Caso Especial" && row[4] !== "Enviar a Expedicion" && row[4] !== "Poliza Renovada").map(row => {
-    const registro = row[1];
-    const historiaGestiones = row[6];
-    let datosInquilino = {};
-    try {
-      let inquilinoRaw = row[7]; // Columna H
-      if (inquilinoRaw && inquilinoRaw.trim() !== "") {
-        datosInquilino = JSON.parse(inquilinoRaw);
-      }
-    } catch (e) {
-      datosInquilino = { nombre: "Error Datos", identificacion: "" };
-    }
-
-    let gestiones = [];
-    if (historiaGestiones && String(historiaGestiones).trim() !== "") {
-      let cleanHistoryString = String(historiaGestiones).trim();
-      if (cleanHistoryString.startsWith(")]}',")) {
-        cleanHistoryString = cleanHistoryString.substring(5);
-      }
-      try {
-        gestiones = JSON.parse(cleanHistoryString);
-        gestiones = Array.isArray(gestiones) ? gestiones : [gestiones]; // Asegurar que sea un array
-      } catch (e) {
-        Logger.log("Error parseando historial de gestiones: " + e.message + " Contenido: " + cleanHistoryString);
-        gestiones = [];
-      }
-    }
-
-    let historialGestion = [];
-    leadData = parseLeadData(registro)
-
-    if (historiaGestiones !== "") {
-      historialGestion = gestiones || [];
-    }
-    return {
-      fechaIngreso: row[0],
-      leadData: leadData,
-      nombreAgente: row[2],
-      etapaFunel: row[3],
-      estadoGestion: row[4],
-      historialGestiones: historialGestion,
-      datosInquilino: datosInquilino
-    };
-  });
-
-  dataRecuperacion = dataSetPlano.filter(row => row[2] && row[2].toString().trim().toLowerCase() === correoActivo.trim().toLowerCase() && (row[4].toString().trim().toLowerCase() === "vencido" || row[4].toString().trim().toLowerCase() === "No renueva" || row[4].toString().trim().toLowerCase() === "Desistido")
-  ).map(row => {
-    let leadData = parseLeadData(row[1]);
-    return {
-      fechaIngreso: row[0],
-      leadData: leadData,
-      nombreAgente: row[2],
-      etapaFunel: row[3],
-      estadoGestion: row[4],
-    };
-  });
-};
-
-
-// 3. Actualizar una PQR (Update / Gestión)
+// =========================================================================
+// 6. ACTUALIZACIÓN PQR
+// =========================================================================
 function updatePQR(pqrDataStr) {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
   try {
-    const pqrData = JSON.parse(pqrDataStr);
-    const sheet = SHEET_PQR
+    var pqrData = JSON.parse(pqrDataStr);
+    var sheet = getSheet(CONFIG.SHEETS.PQR);
 
-    // Preparar el nuevo registro para el historial
-    const nuevaAccion = {
+    var nuevaAccion = {
       fecha: new Date().toISOString(),
       usuario: Session.getActiveUser().getEmail() || 'Usuario Actual',
       accion: pqrData.nuevaAccionTexto,
@@ -440,136 +311,51 @@ function updatePQR(pqrDataStr) {
       estadoNuevo: pqrData.estado
     };
 
-    // Agregar al historial existente
-    const historial = Array.isArray(pqrData.historial) ? pqrData.historial : [];
+    var historial = Array.isArray(pqrData.historial) ? pqrData.historial : [];
     historial.unshift(nuevaAccion);
-    pqrData.historial = historial;
 
-    // Actualizar la hoja (columnas 5 a 10 según el modelo)
-    // Estado (E), Prioridad (F), Asesor (G), Fecha Asignación (H), Fecha Cierre (I), Historial (J)
     sheet.getRange(pqrData.rowNumber, 5).setValue(pqrData.estado);
     sheet.getRange(pqrData.rowNumber, 6).setValue(pqrData.prioridad);
 
-    // Si se asignó un asesor y antes no tenía
-    if (pqrData.asesor !== 'Sin Asignar') {
+    if (pqrData.asesor && pqrData.asesor !== 'Sin Asignar') {
       sheet.getRange(pqrData.rowNumber, 7).setValue(pqrData.asesor);
       if (!pqrData.fechaAsignacion) {
         sheet.getRange(pqrData.rowNumber, 8).setValue(new Date().toISOString());
       }
     }
 
-    // Si se cerró la PQR
     if (pqrData.estado === 'Cerrado' || pqrData.estado === 'Resuelto') {
       sheet.getRange(pqrData.rowNumber, 9).setValue(new Date().toISOString());
     }
 
-    // Guardar historial en JSON
-    sheet.getRange(pqrData.rowNumber, 10).setValue(JSON.stringify(pqrData.historial));
+    sheet.getRange(pqrData.rowNumber, 10).setValue(JSON.stringify(historial));
 
     return JSON.stringify({ status: 'success', message: 'PQR actualizada exitosamente.' });
   } catch (error) {
     return JSON.stringify({ status: 'error', message: error.toString() });
+  } finally {
+    lock.releaseLock();
   }
 }
 
-// 4. Obtener usuarios de la hoja Gestion (para asignación y admin)
-function getUsuariosGestion(admin) {
-
-  let dataUsers
-  switch (admin) {
-    case 'superAdmin':
-      dataUsers = {
-        asesor1: "Autos",
-        asesor2: "Seguro de Contenidos",
-        asesor3: "Coordinadora",
-        asesor4: "Seguro de Desempleo",
-        asesor5: "CorreccionesBI",
-        asesor6: "Renovations",
-        asesor7: "Seguro de Vida",
-        asesor8: "pqr",
-        admin1: "Admin VD",
-        admin2: "Admin PQR",
-        admin3: "Admin Renovations",
-        admin4: "Admin General",
-      }
-      break;
-    case 'adminRenovations':
-      dataUsers = {
-        asesor5: "CorreccionesBI",
-        asesor6: "Renovations",
-        admin3: "Admin Renovations",
-      }
-      break;
-    case 'adminPQR':
-
-      dataUsers = {
-        asesor8: "pqr",
-        admin2: "Admin PQR",
-      }
-
-      break;
-    case 'adminVidaDesempleo':
-
-      dataUsers = {
-        asesor3: "Coordinadora",
-        asesor4: "Seguro de Desempleo",
-        asesor7: "Seguro de Vida",
-        admin1: "Admin VD",
-      }
-      break;
-    default:
-      return JSON.stringify({ status: 'error', message: 'Usuario sin rol definido para acceder a los PQRs.' });
-  }
-
-  try {
-    const sheet = SHEET_GESTION
-    if (!sheet) return JSON.stringify({ status: 'success', data: [] });
-    const data = sheet.getDataRange().getValues();
-    const usuarios = [];
-
-    let dataFilter = data.filter(row => {
-      const rol = row[3]? row[3].toString().trim().toLowerCase() : '';
-      return Object.keys(dataUsers).some(function(key) { return dataUsers[key] === rol; });
-    });
-    
-    for (let i = 1; i < dataFilter.length; i++) {
-      var row = data[i];
-      var rol = (row[3] || '').toString().trim();
-      if (!Object.keys(dataUsers).some(function(key) { return dataUsers[key] === rol; })) continue;
-      var correo = (row[2] || '').toString().trim();
-      if (!correo) continue;
-      usuarios.push({
-        rowNumber: i + 1,
-        no: row[0],
-        nombre: (row[1] || '').toString().trim(),
-        correo: correo,
-        seguro: rol,
-        novedad: (row[4] || '').toString().trim()
-      });
-    }
-    return JSON.stringify({ status: 'success', data: usuarios });
-  } catch (e) {
-    return JSON.stringify({ status: 'error', message: e.toString() });
-  }
-}
-
-// 5. Crear nuevo usuario en Gestion
+// =========================================================================
+// 7. CRUD USUARIOS
+// =========================================================================
 function createUsuario(userData) {
   try {
     if (typeof userData === 'string') userData = JSON.parse(userData);
-    const sheet = SHEET_GESTION;
+    var sheet = getSheet(CONFIG.SHEETS.GESTION);
     if (!sheet) return JSON.stringify({ status: 'error', message: 'No existe la hoja Gestion.' });
-    const data = sheet.getDataRange().getValues();
-    const email = (userData.correo || '').toString().trim().toLowerCase();
-    for (let i = 1; i < data.length; i++) {
+    var data = sheet.getDataRange().getValues();
+    var email = (userData.correo || '').toString().trim().toLowerCase();
+    for (var i = 1; i < data.length; i++) {
       if ((data[i][2] || '').toString().trim().toLowerCase() === email) {
         return JSON.stringify({ status: 'error', message: 'El correo ya está registrado.' });
       }
     }
-    const lastRow = sheet.getLastRow();
-    const no = lastRow;
+    var lastRow = sheet.getLastRow();
     sheet.appendRow([
-      no,
+      lastRow,
       (userData.nombre || '').toString().trim(),
       (userData.correo || '').toString().trim(),
       (userData.seguro || 'pqr').toString().trim(),
@@ -581,14 +367,13 @@ function createUsuario(userData) {
   }
 }
 
-// 6. Actualizar novedad de un usuario
 function updateUsuarioNovedad(correo, novedad) {
   try {
-    const sheet = SHEET_GESTION
+    var sheet = getSheet(CONFIG.SHEETS.GESTION);
     if (!sheet) return JSON.stringify({ status: 'error', message: 'No existe la hoja Gestion.' });
-    const data = sheet.getDataRange().getValues();
-    const email = (correo || '').toString().trim().toLowerCase();
-    for (let i = 1; i < data.length; i++) {
+    var data = sheet.getDataRange().getValues();
+    var email = (correo || '').toString().trim().toLowerCase();
+    for (var i = 1; i < data.length; i++) {
       if ((data[i][2] || '').toString().trim().toLowerCase() === email) {
         sheet.getRange(i + 1, 5).setValue((novedad || '').toString().trim());
         return JSON.stringify({ status: 'success', message: 'Novedad actualizada.' });
@@ -600,12 +385,10 @@ function updateUsuarioNovedad(correo, novedad) {
   }
 }
 
-// 7. Obtener asesores para dropdown (nombre + correo)
 function getAsesores() {
   try {
-    const res = JSON.parse(getUsuariosGestion());
-    if (res.status !== 'success') return JSON.stringify({ status: 'success', data: [] });
-    const asesores = (res.data || []).map(u => ({ nombre: u.nombre, email: u.correo }));
+    var usuarios = getUsuariosGestion('pqr');
+    var asesores = (usuarios || []).map(function(u) { return { nombre: u.nombre, email: u.correo }; });
     return JSON.stringify({ status: 'success', data: asesores });
   } catch (e) {
     return JSON.stringify({ status: 'success', data: [] });
