@@ -9,7 +9,7 @@ const CONFIG = {
     GESTION: 'Gestion',
     PQR: 'PQRs',
     LEADS: 'Leads',
-    RENOVACIONES: 'DataRenovaciones'  // Cambiar a 'JSON' o nombre real de la hoja
+    RENOVACIONES: 'JSON'  // Cambiar a 'JSON' o nombre real de la hoja
   }
 };
 
@@ -207,6 +207,8 @@ function getRenovationsData(isAdmin, correoAsesor) {
   data.shift();
 
   var renovaciones = [];
+  console.log(data)
+  
   for (var i = 0; i < data.length; i++) {
     var row = data[i];
     var asesor = (row[2] || '').toString().trim();

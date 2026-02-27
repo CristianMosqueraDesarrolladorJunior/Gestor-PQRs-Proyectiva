@@ -37,7 +37,7 @@
         body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; rounded-full; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 9999px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         #sidebar { position: fixed; left: 0; top: 0; height: 100%; }
@@ -72,6 +72,14 @@
             <a href="#" onclick="switchTab('pqrs'); return false;" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors" id="nav-pqrs">
                 <i class="fas fa-inbox w-5 shrink-0"></i>
                 <span class="sidebar-text">Gestión de PQRs</span>
+            </a>
+            <a href="#" onclick="switchTab('renovaciones'); return false;" id="nav-renovaciones" style="display:none" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
+                <i class="fas fa-sync-alt w-5 shrink-0"></i>
+                <span class="sidebar-text">Renovaciones</span>
+            </a>
+            <a href="#" onclick="switchTab('vd'); return false;" id="nav-vd" style="display:none" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
+                <i class="fas fa-shield-alt w-5 shrink-0"></i>
+                <span class="sidebar-text">Vida y Desempleo</span>
             </a>
             <a href="#" onclick="switchTab('admin'); return false;" id="nav-admin" style="display:none" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
                 <i class="fas fa-users-cog w-5 shrink-0"></i>
@@ -355,6 +363,148 @@
                 </div>
             </div>
 
+            <!-- VISTA: RENOVACIONES -->
+            <div id="view-renovaciones" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-blue">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Total Pólizas</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="reno-kpi-total">0</h3>
+                            </div>
+                            <div class="p-3 bg-blue-50 rounded-lg text-proyectiva-blue"><i class="fas fa-file-contract text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-amber-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Por Vencer</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="reno-kpi-vencer">0</h3>
+                            </div>
+                            <div class="p-3 bg-amber-50 rounded-lg text-amber-600"><i class="fas fa-exclamation-triangle text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Renovadas</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="reno-kpi-renovadas">0</h3>
+                            </div>
+                            <div class="p-3 bg-green-50 rounded-lg text-green-500"><i class="fas fa-check-circle text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-red-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Vencidas</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="reno-kpi-vencidas">0</h3>
+                            </div>
+                            <div class="p-3 bg-red-50 rounded-lg text-red-500"><i class="fas fa-times-circle text-xl"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center justify-between">
+                        <h4 class="font-bold text-proyectiva-blue"><i class="fas fa-sync-alt text-proyectiva-orange mr-2"></i>Gestión Activa de Renovaciones</h4>
+                        <div class="flex gap-2">
+                            <input type="text" id="reno-search" placeholder="Buscar póliza, asegurado..." class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:ring-2 focus:ring-proyectiva-orange outline-none">
+                            <select id="reno-filter-estado" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none">
+                                <option value="">Todos los estados</option>
+                                <option value="Pendiente Renovacion">Pendiente</option>
+                                <option value="Poliza Renovada">Renovada</option>
+                                <option value="VENCIDO">Vencida</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr class="text-xs font-semibold text-gray-600 uppercase">
+                                    <th class="px-6 py-4 text-left">Póliza / Fecha</th>
+                                    <th class="px-6 py-4 text-left">Asegurado</th>
+                                    <th class="px-6 py-4 text-left">Agente</th>
+                                    <th class="px-6 py-4 text-left">Estado</th>
+                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reno-table-body" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                        <p id="reno-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay renovaciones para mostrar.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VISTA: VIDA Y DESEMPLEO -->
+            <div id="view-vd" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-blue">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Total Leads</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-total">0</h3>
+                            </div>
+                            <div class="p-3 bg-blue-50 rounded-lg text-proyectiva-blue"><i class="fas fa-users text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">En Gestión</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-gestion">0</h3>
+                            </div>
+                            <div class="p-3 bg-yellow-50 rounded-lg text-yellow-600"><i class="fas fa-spinner text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Ventas</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-ventas">0</h3>
+                            </div>
+                            <div class="p-3 bg-green-50 rounded-lg text-green-500"><i class="fas fa-check-circle text-xl"></i></div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-gray-400">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="text-sm text-gray-500 font-medium">Desistidos</p>
+                                <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-desistidos">0</h3>
+                            </div>
+                            <div class="p-3 bg-gray-100 rounded-lg text-gray-600"><i class="fas fa-times text-xl"></i></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap gap-4 items-center justify-between">
+                        <h4 class="font-bold text-proyectiva-blue"><i class="fas fa-shield-alt text-proyectiva-orange mr-2"></i>Leads Vida y Desempleo</h4>
+                        <div class="flex gap-2">
+                            <input type="text" id="vd-search" placeholder="Buscar nombre, póliza..." class="border border-gray-300 rounded-lg px-3 py-2 text-sm w-64 focus:ring-2 focus:ring-proyectiva-orange outline-none">
+                            <select id="vd-filter-producto" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none">
+                                <option value="">Todos los productos</option>
+                                <option value="Seguro de Vida">Seguro de Vida</option>
+                                <option value="Seguro de Desempleo">Seguro de Desempleo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm">
+                            <thead class="bg-gray-100">
+                                <tr class="text-xs font-semibold text-gray-600 uppercase">
+                                    <th class="px-6 py-4 text-left">Solicitud / Fecha</th>
+                                    <th class="px-6 py-4 text-left">Nombre</th>
+                                    <th class="px-6 py-4 text-left">Asesor</th>
+                                    <th class="px-6 py-4 text-left">Producto</th>
+                                    <th class="px-6 py-4 text-left">Estado</th>
+                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vd-table-body" class="divide-y divide-gray-100"></tbody>
+                        </table>
+                        <p id="vd-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay leads para mostrar.</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </main>
 
@@ -488,12 +638,462 @@
         </div>
     </div>
 
+    <!-- MODAL GESTIÓN RENOVACIONES / VIDA-DESEMPLEO -->
+    <div id="modalLeadGestion" class="fixed inset-0 z-50 hidden items-center justify-center">
+        <div class="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm" onclick="closeModalLead()"></div>
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative z-10 overflow-hidden mx-4">
+            <div class="bg-proyectiva-blue px-6 py-4 flex justify-between items-center text-white">
+                <div>
+                    <h2 class="text-xl font-bold flex items-center gap-2">
+                        <i class="fas fa-clipboard-list text-proyectiva-orange"></i>
+                        <span id="modalLead-title">Gestión de Lead</span>
+                    </h2>
+                    <p class="text-sm text-blue-200 mt-1" id="modalLead-subtitle">---</p>
+                </div>
+                <button onclick="closeModalLead()" class="text-white hover:text-proyectiva-orange transition-colors">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50">
+                <div id="modalLead-renovaciones" class="hidden space-y-6">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">Información de la Póliza</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="modalLead-reno-info"></div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-blue-100 ring-1 ring-blue-50">
+                        <h3 class="text-sm font-bold text-proyectiva-blue uppercase tracking-wider mb-4 border-b pb-2">Registrar Observación</h3>
+                        <form id="formRenoGestion" onsubmit="guardarGestionReno(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Estado de Gestión</label>
+                                <select id="inp-reno-estado" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none">
+                                    <option value="Pendiente Renovacion">Pendiente Renovación</option>
+                                    <option value="Poliza Renovada">Póliza Renovada</option>
+                                    <option value="VENCIDO">Vencido</option>
+                                    <option value="Caso Especial">Caso Especial</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Observación</label>
+                                <textarea id="inp-reno-obs" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-proyectiva-orange outline-none" placeholder="Registre la gestión realizada..."></textarea>
+                            </div>
+                            <button type="submit" class="bg-proyectiva-orange hover:bg-orange-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-md transition-all flex items-center gap-2">
+                                <i class="fas fa-save"></i> Guardar Gestión
+                            </button>
+                        </form>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">Historial de Gestión</h3>
+                        <div id="modalLead-reno-historial" class="space-y-3"></div>
+                    </div>
+                </div>
+                <div id="modalLead-vd" class="hidden space-y-6">
+                    <!-- Resumen lead -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Datos del Lead</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" id="modalLead-vd-info"></div>
+                    </div>
+                    <!-- Selector producto -->
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-proyectiva-blue uppercase tracking-wider mb-4 border-b pb-2">Producto a gestionar</h3>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer p-4 rounded-xl border-2 border-gray-200 hover:border-green-400 transition-colors has-[:checked]:border-green-500 has-[:checked]:bg-green-50">
+                                <input type="radio" name="vd-producto-gestion" value="vida" class="text-proyectiva-blue focus:ring-proyectiva-orange" checked>
+                                <i class="fas fa-heart text-green-600"></i>
+                                <span class="font-semibold">Seguro de Vida</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer p-4 rounded-xl border-2 border-gray-200 hover:border-blue-400 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                                <input type="radio" name="vd-producto-gestion" value="desempleo" class="text-proyectiva-blue focus:ring-proyectiva-orange">
+                                <i class="fas fa-briefcase text-blue-600"></i>
+                                <span class="font-semibold">Seguro de Desempleo</span>
+                            </label>
+                        </div>
+                    </div>
+                    <!-- Stepper -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                        <div class="flex overflow-x-auto border-b border-gray-200 bg-gray-50 px-4">
+                            <div id="vd-step-1" class="vd-step flex items-center gap-2 py-3 px-4 border-b-2 border-proyectiva-blue text-proyectiva-blue font-semibold shrink-0 cursor-pointer" data-step="1">
+                                <span class="w-8 h-8 rounded-full bg-proyectiva-blue text-white flex items-center justify-center text-sm">1</span>
+                                Guion Inicial
+                            </div>
+                            <div id="vd-step-2" class="vd-step flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-500 shrink-0 cursor-pointer" data-step="2">
+                                <span class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm">2</span>
+                                <span class="vd-step-vida">Asegurabilidad</span>
+                                <span class="vd-step-desempleo hidden">Autorizaciones</span>
+                            </div>
+                            <div id="vd-step-3" class="vd-step flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-500 shrink-0 cursor-pointer" data-step="3">
+                                <span class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm">3</span>
+                                Descuento Débito
+                            </div>
+                            <div id="vd-step-4" class="vd-step flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-500 shrink-0 shrink-0 cursor-pointer" data-step="4">
+                                <span class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm">4</span>
+                                <span class="vd-step-vida">Beneficiarios</span>
+                                <span class="vd-step-desempleo hidden">Coberturas</span>
+                            </div>
+                            <div id="vd-step-5" class="vd-step flex items-center gap-2 py-3 px-4 border-b-2 border-transparent text-gray-500 shrink-0 cursor-pointer" data-step="5">
+                                <span class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-sm">5</span>
+                                Finalizar
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <!-- ETAPA 1: Guion Inicial y Autorización -->
+                            <div id="vd-etapa-1" class="vd-etapa space-y-6">
+                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
+                                    <h4 class="font-bold text-proyectiva-blue mb-3 flex items-center gap-2"><i class="fas fa-comment-dots"></i> Guion de Introducción</h4>
+                                    <p class="text-gray-700 mb-3">"Buenos días/tardes señor(a) <strong id="vd-guion-nombre">[NOMBRE]</strong>, mi nombre es de Agencia de Proyectiva Agencia de Seguros Ltda. ¿Cómo se encuentra el día de hoy? Le informo que esta llamada está siendo grabada y monitoreada."</p>
+                                    <h4 class="font-bold text-proyectiva-blue mb-2 mt-4">Autorización de Datos Personales</h4>
+                                    <p class="text-gray-700">"¿Me autoriza el tratamiento de sus datos personales para darle información de las empresas que hacen parte del Grupo Bolívar?"</p>
+                                    <p class="text-amber-700 text-sm mt-2 font-medium"><i class="fas fa-exclamation-triangle mr-1"></i> Si el cliente NO autoriza, la gestión debe ser <strong>Suspendida</strong>.</p>
+                                </div>
+                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
+                                    <h4 class="font-bold text-proyectiva-blue mb-3">Confirmación de Correo</h4>
+                                    <p class="text-gray-700 mb-2">"Podría confirmarme su correo electrónico actual, por favor:"</p>
+                                    <input type="email" id="vd-email-cliente" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-proyectiva-orange outline-none" placeholder="correo@ejemplo.com" required>
+                                </div>
+                                <div id="vd-datos-vida-inicial" class="bg-white p-5 rounded-xl border border-gray-200 space-y-4">
+                                    <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-user-edit"></i> Datos del cliente y validación de edad</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento *</label>
+                                            <div class="flex gap-2">
+                                                <input type="date" id="vd-fecha-nacimiento" class="flex-1 border border-gray-300 rounded-lg px-3 py-2" required>
+                                                <button type="button" onclick="vdValidarEdad()" class="px-4 py-2 rounded-lg bg-proyectiva-blue hover:bg-blue-900 text-white text-sm font-semibold shrink-0">Validar Edad</button>
+                                            </div>
+                                            <p class="text-sm mt-1">Edad: <span id="vd-edad-display" class="font-bold text-proyectiva-blue">--</span></p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de documento</label>
+                                            <select id="vd-tipo-documento" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                                <option value="CC">Cédula de Ciudadanía</option>
+                                                <option value="CE">Cédula de Extranjería</option>
+                                                <option value="PAS">Pasaporte</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Género</label>
+                                            <select id="vd-genero" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                                <option value="">Seleccione...</option>
+                                                <option value="M">Masculino</option>
+                                                <option value="F">Femenino</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="vd-cotizador" class="bg-amber-50 p-5 rounded-xl border border-amber-200 space-y-4">
+                                    <h4 class="font-bold text-proyectiva-blue flex items-center gap-2"><i class="fas fa-calculator"></i> Cotizador</h4>
+                                    <p class="text-gray-700 text-sm">"El valor de su canon es de <strong>[CANON]</strong> ¿es correcto? ¿El valor que paga de administración es de <strong>[ADMIN]</strong>?"</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Canon arrendamiento *</label>
+                                            <input type="number" id="vd-canon" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="0" min="0" step="1000">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Administración</label>
+                                            <input type="number" id="vd-administracion" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="0" min="0" value="0" step="1000">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Costo protección mensual *</label>
+                                            <input type="number" id="vd-costo-proteccion" class="w-full border border-gray-300 rounded-lg px-3 py-2 font-semibold text-proyectiva-blue" placeholder="0" min="0" step="1000">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 vd-guion-vida">
+                                    <h4 class="font-bold text-proyectiva-blue mb-2">Presentación Protección Vida</h4>
+                                    <p class="text-gray-700">"Muchas gracias. Nos complace informarle que su solicitud ha sido aprobada. Usted cuenta con el privilegio de acceder a una protección que le garantizará a su familia 1, 2 o 3 años de arrendamiento en caso de su fallecimiento o una incapacidad total y permanente mayor a 150 días continuos."</p>
+                                </div>
+                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-100 vd-guion-desempleo hidden">
+                                    <h4 class="font-bold text-proyectiva-blue mb-2">Presentación Protección Desempleo</h4>
+                                    <p class="text-gray-700">"Muchas gracias. Nos complace informarle que su solicitud ha sido aprobada. Usted cuenta con el privilegio de poder acceder a una protección para cubrir sus cánones de arrendamiento en los siguientes casos, sin límite de eventos."</p>
+                                </div>
+                                <div class="flex gap-3">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="vd-autoriza-datos" value="si" required class="text-green-600 focus:ring-proyectiva-orange">
+                                        <span>Cliente SÍ Acepta</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="vd-autoriza-datos" value="no" class="text-red-600 focus:ring-proyectiva-orange">
+                                        <span>Cliente NO Acepta</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <!-- ETAPA 2a: Vida - Declaración Asegurabilidad + Info Médica -->
+                            <div id="vd-etapa-2-vida" class="vd-etapa hidden space-y-6">
+                                <div class="bg-white p-5 rounded-xl border border-gray-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-4">Declaración de Asegurabilidad (Vida)</h4>
+                                    <div class="space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">1. ¿Sus actividades, profesión u oficio han sido y son lícitos?</label>
+                                            <div class="flex gap-4"><label><input type="radio" name="vd-p1-licito" value="si" required> Sí</label><label><input type="radio" name="vd-p1-licito" value="no"> No</label></div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">2. ¿Nunca ha sido indiciado ni ha hecho parte de un proceso penal?</label>
+                                            <div class="flex gap-4"><label><input type="radio" name="vd-p2-penal" value="si" required> Sí</label><label><input type="radio" name="vd-p2-penal" value="no"> No</label></div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">3. ¿Frecuencia de deportes de alto riesgo?</label>
+                                            <select id="vd-frecuencia-deporte" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
+                                                <option value="">Seleccione...</option>
+                                                <option value="0">Ninguna</option>
+                                                <option value="1">1 vez al año</option>
+                                                <option value="2">2 veces al año</option>
+                                                <option value="3">3 veces al año</option>
+                                                <option value="4">4 veces al año</option>
+                                                <option value="5">5 veces al año</option>
+                                                <option value="6">Más de 5 veces al año</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-5 rounded-xl border border-gray-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-4">Información Médica</h4>
+                                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Peso (kg)</label>
+                                            <input type="number" id="vd-peso" step="0.1" class="w-full border rounded-lg px-3 py-2" required>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">Estatura (cm)</label>
+                                            <input type="number" id="vd-estatura" step="0.1" class="w-full border rounded-lg px-3 py-2" required>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-medium text-gray-600 mb-1">IMC (calculado)</label>
+                                            <input type="text" id="vd-imc" class="w-full border rounded-lg px-3 py-2 bg-gray-100" readonly>
+                                        </div>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4 text-sm">
+                                        <div><label class="block font-medium mb-1">¿Hipertensión?</label><div class="flex gap-2"><label><input type="radio" name="vd-hipertension" value="si" required> Sí</label><label><input type="radio" name="vd-hipertension" value="no"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">¿Diabetes?</label><div class="flex gap-2"><label><input type="radio" name="vd-diabetes" value="si" required> Sí</label><label><input type="radio" name="vd-diabetes" value="no"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">¿Cáncer o tumores?</label><div class="flex gap-2"><label><input type="radio" name="vd-cancer" value="si" required> Sí</label><label><input type="radio" name="vd-cancer" value="no"> No</label></div></div>
+                                        <div><label class="block font-medium mb-1">¿SIDA/VIH positivo?</label><div class="flex gap-2"><label><input type="radio" name="vd-vih" value="si" required> Sí</label><label><input type="radio" name="vd-vih" value="no"> No</label></div></div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <label class="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" id="vd-autoriza-info-medica" required class="rounded">
+                                            <span class="text-sm font-medium">Autorizo el tratamiento de mi información médica según política de protección de datos.</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- ETAPA 2b: Desempleo - Autorizaciones -->
+                            <div id="vd-etapa-2-desempleo" class="vd-etapa hidden space-y-6">
+                                <div class="bg-white p-5 rounded-xl border border-gray-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-4">Autorización de Datos Personales</h4>
+                                    <p class="text-gray-700 mb-3">¿Autoriza el tratamiento de sus datos personales para darle información de las empresas del Grupo Bolívar?</p>
+                                    <div class="flex gap-4"><label><input type="radio" name="vd-des-autoriza" value="si" required> Sí</label><label><input type="radio" name="vd-des-autoriza" value="no"> No</label></div>
+                                </div>
+                                <div class="bg-white p-5 rounded-xl border border-gray-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-4">Información Laboral</h4>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del empleador</label>
+                                            <input type="text" id="vd-nombre-empleador" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="¿En cuál entidad labora?">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de vinculación</label>
+                                            <div class="space-y-1">
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="Empleado" required> Empleado</label>
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="Independiente"> Independiente</label>
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="No asegurable"> No asegurable</label>
+                                                <label class="flex items-center gap-2"><input type="radio" name="vd-tipo-vinculacion" value="No autoriza el tratamiento de datos"> No autoriza datos</label>
+                                            </div>
+                                        </div>
+                                        <div id="vd-tipo-contrato-container" class="hidden">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de contrato (Empleado)</label>
+                                            <select id="vd-tipo-contrato" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                                <option value="">Seleccione...</option>
+                                                <option value="Termino Indefinido">Término Indefinido / Carrera Administrativa</option>
+                                                <option value="Contrato Fijo">Contrato Fijo (≥6 meses)</option>
+                                                <option value="Obra o Labor">Obra o Labor / Temporal</option>
+                                                <option value="Libre Nombramiento">Libre Nombramiento y Remoción</option>
+                                                <option value="Provisionalidad">Provisionalidad</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="bg-white p-5 rounded-xl border border-gray-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-3">Autorización Reaseguradora</h4>
+                                    <p class="text-gray-700 mb-3">¿Autoriza a Seguros Comerciales Bolívar S.A. y a la reaseguradora para tener acceso a su historia clínica y de trabajo?</p>
+                                    <div class="flex gap-4"><label><input type="radio" name="vd-autoriza-reaseg" value="si" required> Sí</label><label><input type="radio" name="vd-autoriza-reaseg" value="no"> No</label></div>
+                                </div>
+                                <div class="bg-white p-5 rounded-xl border border-gray-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-3">Ocupación lícita</h4>
+                                    <p class="text-gray-700 mb-3">¿Su actividad laboral es lícita y la ejerce dentro de los marcos legales?</p>
+                                    <div class="flex gap-4"><label><input type="radio" name="vd-ocupacion-licita" value="si" required> Sí</label><label><input type="radio" name="vd-ocupacion-licita" value="no"> No</label></div>
+                                </div>
+                            </div>
+                            <!-- ETAPA 3: Autorización Descuento Débito -->
+                            <div id="vd-etapa-3" class="vd-etapa hidden space-y-6">
+                                <div class="bg-amber-50 p-5 rounded-xl border border-amber-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-2">Guion - Lectura al Cliente</h4>
+                                    <p class="text-gray-700 text-sm">"AUTORIZACIÓN DE DESCUENTO DÉBITO AUTOMÁTICO. Autorizo a Seguros Comerciales Bolívar S.A. para descontar de la cuenta/tarjeta terminada en No. <strong id="vd-guion-num-cuenta">____</strong> del Banco <strong id="vd-guion-entidad">____</strong>, los pagos por concepto de prima mensual por valor de <strong id="vd-guion-prima">____</strong>."</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Canal de descuento *</label>
+                                        <select id="vd-canal-descuento" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
+                                            <option value="">Seleccione...</option>
+                                            <option value="Cuenta Ahorros">Cuenta de Ahorros</option>
+                                            <option value="Cuenta Corriente">Cuenta Corriente</option>
+                                            <option value="Tarjeta Credito">Tarjeta de Crédito</option>
+                                        </select>
+                                    </div>
+                                    <div id="vd-tc-fields" class="hidden">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha vencimiento TC</label>
+                                        <input type="month" id="vd-fecha-venc-tc" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Entidad bancaria *</label>
+                                        <select id="vd-entidad-bancaria" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
+                                            <option value="">Seleccione...</option>
+                                            <option value="BANCOLOMBIA">Bancolombia</option>
+                                            <option value="BANCO DE BOGOTA">Banco de Bogotá</option>
+                                            <option value="DAVIVIENDA">Davivienda</option>
+                                            <option value="BBVA">BBVA</option>
+                                            <option value="AV VILLAS">AV Villas</option>
+                                            <option value="NEQUI">Nequi</option>
+                                            <option value="DAVIPLATA">Daviplata</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Número cuenta/tarjeta *</label>
+                                        <input type="text" id="vd-numero-cuenta" class="w-full border border-gray-300 rounded-lg px-3 py-2" required placeholder="Últimos 4 dígitos">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Valor prima *</label>
+                                        <input type="number" id="vd-valor-prima" step="0.01" class="w-full border border-gray-300 rounded-lg px-3 py-2" required>
+                                    </div>
+                                </div>
+                                <div class="space-y-2">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" id="vd-autoriza-debito" required class="rounded">
+                                        <span>Autorizo descuento débito automático</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" id="vd-entiende-mora" required class="rounded">
+                                        <span>Entiendo que en caso de mora se dará terminación automática del contrato</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <!-- ETAPA 4a: Beneficiarios (Vida) -->
+                            <div id="vd-etapa-4-vida" class="vd-etapa hidden space-y-6">
+                                <div class="bg-green-50 p-5 rounded-xl border border-green-200">
+                                    <p class="text-gray-700 text-sm">La suma de las designaciones de beneficiarios debe ser <strong>100%</strong>.</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    <div class="border border-gray-200 rounded-xl p-4">
+                                        <h5 class="font-bold text-gray-700 mb-3">Beneficiario 1</h5>
+                                        <input type="text" id="vd-ben1-nombre" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Nombre">
+                                        <input type="text" id="vd-ben1-apellido" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Apellidos">
+                                        <select id="vd-ben1-parentesco" class="w-full border rounded-lg px-3 py-2 mb-2">
+                                            <option value="">Parentesco</option>
+                                            <option value="conyuge">Cónyuge</option>
+                                            <option value="hijo">Hijo/a</option>
+                                            <option value="padre">Padre/Madre</option>
+                                            <option value="hermano">Hermano/a</option>
+                                            <option value="otro">Otro</option>
+                                        </select>
+                                        <input type="number" id="vd-ben1-designacion" min="0" max="100" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
+                                    </div>
+                                    <div class="border border-gray-200 rounded-xl p-4">
+                                        <h5 class="font-bold text-gray-700 mb-3">Beneficiario 2</h5>
+                                        <input type="text" id="vd-ben2-nombre" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Nombre">
+                                        <input type="text" id="vd-ben2-apellido" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Apellidos">
+                                        <select id="vd-ben2-parentesco" class="w-full border rounded-lg px-3 py-2 mb-2">
+                                            <option value="">Parentesco</option>
+                                            <option value="conyuge">Cónyuge</option>
+                                            <option value="hijo">Hijo/a</option>
+                                            <option value="padre">Padre/Madre</option>
+                                            <option value="hermano">Hermano/a</option>
+                                            <option value="otro">Otro</option>
+                                        </select>
+                                        <input type="number" id="vd-ben2-designacion" min="0" max="100" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
+                                    </div>
+                                    <div class="border border-gray-200 rounded-xl p-4">
+                                        <h5 class="font-bold text-gray-700 mb-3">Beneficiario 3</h5>
+                                        <input type="text" id="vd-ben3-nombre" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Nombre">
+                                        <input type="text" id="vd-ben3-apellido" class="w-full border rounded-lg px-3 py-2 mb-2" placeholder="Apellidos">
+                                        <select id="vd-ben3-parentesco" class="w-full border rounded-lg px-3 py-2 mb-2">
+                                            <option value="">Parentesco</option>
+                                            <option value="conyuge">Cónyuge</option>
+                                            <option value="hijo">Hijo/a</option>
+                                            <option value="padre">Padre/Madre</option>
+                                            <option value="hermano">Hermano/a</option>
+                                            <option value="otro">Otro</option>
+                                        </select>
+                                        <input type="number" id="vd-ben3-designacion" min="0" max="100" class="w-full border rounded-lg px-3 py-2" placeholder="% (0-100)">
+                                    </div>
+                                </div>
+                                <p id="vd-ben-sum-msg" class="text-red-600 text-sm font-medium hidden">La suma de designaciones debe ser 100%</p>
+                            </div>
+                            <!-- ETAPA 4b: Reiterar Coberturas (Desempleo) -->
+                            <div id="vd-etapa-4-desempleo" class="vd-etapa hidden space-y-6">
+                                <div class="bg-blue-50 p-5 rounded-xl border border-blue-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-3">Guion de Reiteración</h4>
+                                    <p class="text-gray-700 mb-3">Señor(a) <strong id="vd-cobertura-nombre">XXXX</strong>, le recuerdo que esta póliza le garantizará:</p>
+                                    <div id="vd-cobertura-contenido" class="text-sm text-gray-700 space-y-2"></div>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">¿Confirma que entiende las coberturas y desea continuar?</label>
+                                    <div class="flex gap-4"><label><input type="radio" name="vd-confirma-coberturas" value="si" required> Sí, continuar</label><label><input type="radio" name="vd-confirma-coberturas" value="no"> No</label></div>
+                                </div>
+                            </div>
+                            <!-- ETAPA 5: Finalizar Venta -->
+                            <div id="vd-etapa-5" class="vd-etapa hidden space-y-6">
+                                <div class="bg-amber-50 p-5 rounded-xl border border-amber-200">
+                                    <h4 class="font-bold text-proyectiva-blue mb-3">Guion Final - Información al Cliente</h4>
+                                    <p class="text-gray-700 text-sm mb-2">Tenga en cuenta que una vez activada esta protección tiene un periodo de carencia de 60 días. Durante este periodo ningún evento estará cubierto.</p>
+                                    <p class="text-gray-700 text-sm mb-2">Su seguro continuará vigente hasta que usted manifieste formalmente su intención de no continuar y mientras esté al día el pago de sus primas.</p>
+                                    <p class="text-gray-700 text-sm">Para consultas: Llamando al #322 Opción 1-4-1 línea de atención al cliente de Seguros Bolívar.</p>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Número de póliza/certificado</label>
+                                        <input type="text" id="vd-num-poliza" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Si aplica">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Fecha vigencia/activación</label>
+                                        <input type="date" id="vd-fecha-vigencia" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+                                    </div>
+                                </div>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" id="vd-confirma-venta" required class="rounded">
+                                    <span class="font-medium">Confirmo que la venta se realizó correctamente y los datos son veraces.</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="flex justify-between px-6 py-4 bg-gray-50 border-t border-gray-200">
+                            <button type="button" id="vd-btn-prev" onclick="vdPrevStep()" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 font-medium hidden">
+                                <i class="fas fa-arrow-left mr-2"></i>Anterior
+                            </button>
+                            <button type="button" id="vd-btn-next" onclick="vdNextStep()" class="ml-auto px-6 py-2 rounded-lg bg-proyectiva-orange hover:bg-orange-600 text-white font-bold">
+                                Siguiente<i class="fas fa-arrow-right ml-2"></i>
+                            </button>
+                            <button type="button" id="vd-btn-guardar" onclick="guardarGestionVD()" class="px-6 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold hidden">
+                                <i class="fas fa-check mr-2"></i>Finalizar Gestión
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
+                        <h3 class="text-sm font-bold text-proyectiva-blue uppercase tracking-wider mb-4 border-b border-gray-200 pb-2 flex items-center gap-2">
+                            <i class="fas fa-history text-proyectiva-orange"></i>
+                            Historial de Gestiones
+                        </h3>
+                        <div id="modalLead-vd-historial" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- SCRIPTS CORE DE LA APLICACIÓN -->
     <script>
         // ESTADO GLOBAL
         let appData = [];
+        let renovacionesData = [];
+        let vdData = [];
         let listUsuarios = [];
         let currentPQR = null;
+        let currentLeadReno = null;
+        let currentLeadVD = null;
         let chartInstance = null;
         let filterKPI = null;
         let sidebarCollapsed = false;
@@ -530,6 +1130,46 @@
         // --- INICIALIZACIÓN ---
         document.addEventListener('DOMContentLoaded', () => {
             loadData();
+            const renoSearch = document.getElementById('reno-search');
+            const renoFilter = document.getElementById('reno-filter-estado');
+            if (renoSearch) renoSearch.addEventListener('input', () => renderRenovacionesTab());
+            if (renoFilter) renoFilter.addEventListener('change', () => renderRenovacionesTab());
+            const vdSearch = document.getElementById('vd-search');
+            const vdFilter = document.getElementById('vd-filter-producto');
+            if (vdSearch) vdSearch.addEventListener('input', () => renderVDTab());
+            if (vdFilter) vdFilter.addEventListener('change', () => renderVDTab());
+            document.querySelectorAll('input[name="vd-producto-gestion"]').forEach(r => r.addEventListener('change', () => { vdUpdateProductLabels(); vdShowStep(vdCurrentStep); }));
+            document.querySelectorAll('input[name="vd-tipo-vinculacion"]').forEach(r => r.addEventListener('change', function() {
+                const c = document.getElementById('vd-tipo-contrato-container');
+                if (c) c.classList.toggle('hidden', this.value !== 'Empleado');
+                if (vdCurrentStep === 4 && vdGetProducto() === 'desempleo') vdRenderCoberturas();
+            }));
+            const canalDesc = document.getElementById('vd-canal-descuento');
+            if (canalDesc) canalDesc.addEventListener('change', function() {
+                const tc = document.getElementById('vd-tc-fields');
+                if (tc) tc.classList.toggle('hidden', this.value !== 'Tarjeta Credito');
+            });
+            const pesoEl = document.getElementById('vd-peso');
+            const estEl = document.getElementById('vd-estatura');
+            if (pesoEl && estEl) {
+                const calcImc = () => { const p = parseFloat(pesoEl.value); const e = parseFloat(estEl.value) / 100; document.getElementById('vd-imc').value = (p && e ? (p / (e * e)).toFixed(1) : ''); };
+                pesoEl.addEventListener('input', calcImc);
+                estEl.addEventListener('input', calcImc);
+            }
+            ['vd-numero-cuenta','vd-entidad-bancaria','vd-valor-prima'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', function() {
+                    const g = { 'vd-numero-cuenta': 'vd-guion-num-cuenta', 'vd-entidad-bancaria': 'vd-guion-entidad', 'vd-valor-prima': 'vd-guion-prima' };
+                    const t = document.getElementById(g[id]);
+                    if (t) t.textContent = this.value || '____';
+                });
+            });
+            document.querySelectorAll('.vd-step').forEach((el, i) => {
+                el.addEventListener('click', () => {
+                    const step = i + 1;
+                    if (step <= vdCurrentStep) vdShowStep(step);
+                });
+            });
         });
 
         function toggleSidebar() {
@@ -582,12 +1222,18 @@
             document.getElementById('view-pqrs').classList.add('hidden');
             const viewAdmin = document.getElementById('view-admin');
             if (viewAdmin) viewAdmin.classList.add('hidden');
+            const viewReno = document.getElementById('view-renovaciones');
+            const viewVD = document.getElementById('view-vd');
+            if (viewReno) viewReno.classList.add('hidden');
+            if (viewVD) viewVD.classList.add('hidden');
             const viewEl = document.getElementById(`view-${tabId}`);
             if (viewEl) viewEl.classList.remove('hidden');
 
             if (tabId === 'admin') renderAdminTab();
+            if (tabId === 'renovaciones') renderRenovacionesTab();
+            if (tabId === 'vd') renderVDTab();
 
-            const titles = { dashboard: 'Dashboard Ejecutivo', pqrs: 'Gestión Integral de PQRs', admin: 'Panel de Administración' };
+            const titles = { dashboard: 'Dashboard Ejecutivo', pqrs: 'Gestión Integral de PQRs', admin: 'Panel de Administración', renovaciones: 'Gestión de Renovaciones', vd: 'Vida y Desempleo' };
             document.getElementById('header-title').innerText = titles[tabId] || 'Proyectiva';
         }
 
@@ -720,6 +1366,466 @@
             }
         }
 
+        // --- RENOVACIONES ---
+        function getFilteredRenovaciones() {
+            const term = (document.getElementById('reno-search')?.value || '').toLowerCase();
+            const estado = document.getElementById('reno-filter-estado')?.value || '';
+            return renovacionesData.filter(r => {
+                const ld = r.leadData || r;
+                const poliza = (ld.poliza || r.poliza || '').toString();
+                const asegurado = (ld.asegurado || r.asegurado || '').toString();
+                const matchTerm = !term || poliza.toLowerCase().includes(term) || asegurado.toLowerCase().includes(term);
+                const est = r.estadoGestion || r.estado || '';
+                const matchEstado = !estado || est === estado;
+                return matchTerm && matchEstado;
+            });
+        }
+
+        function renderRenovacionesTab() {
+            if (!document.getElementById('reno-table-body')) return;
+            const filtered = getFilteredRenovaciones();
+            const total = renovacionesData.length;
+            const porVencer = renovacionesData.filter(r => (r.estadoGestion || r.estado || '') === 'Pendiente Renovacion').length;
+            const renovadas = renovacionesData.filter(r => (r.estadoGestion || r.estado || '') === 'Poliza Renovada').length;
+            const vencidas = renovacionesData.filter(r => (r.estadoGestion || r.estado || '') === 'VENCIDO').length;
+
+            document.getElementById('reno-kpi-total').innerText = total;
+            document.getElementById('reno-kpi-vencer').innerText = porVencer;
+            document.getElementById('reno-kpi-renovadas').innerText = renovadas;
+            document.getElementById('reno-kpi-vencidas').innerText = vencidas;
+
+            const tbody = document.getElementById('reno-table-body');
+            const empty = document.getElementById('reno-empty');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (empty) empty.classList.toggle('hidden', filtered.length > 0);
+            filtered.forEach((r) => {
+                const ld = r.leadData || r;
+                const poliza = (ld.poliza || r.poliza || '').toString().replace(/'/g, "&#39;");
+                const asegurado = ld.asegurado || r.asegurado || 'N/A';
+                const agente = r.nombreAgente || r.agente || 'N/A';
+                const est = r.estadoGestion || r.estado || 'Pendiente';
+                const venc = ld.vencimiento || r.vencimiento || '';
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="px-6 py-4"><div class="font-bold text-proyectiva-blue">${ld.poliza || r.poliza || 'N/A'}</div><div class="text-xs text-gray-500">${formatDate(venc)}</div></td>
+                    <td class="px-6 py-4 text-gray-800">${asegurado}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${agente}</td>
+                    <td class="px-6 py-4">${getRenoStatusBadge(est)}</td>
+                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadReno('${poliza}')" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function getRenoStatusBadge(est) {
+            const styles = { 'Pendiente Renovacion': 'bg-amber-50 text-amber-600 border-amber-200', 'Poliza Renovada': 'bg-green-50 text-green-600 border-green-200', 'VENCIDO': 'bg-red-50 text-red-600 border-red-200', 'Caso Especial': 'bg-purple-50 text-purple-600 border-purple-200' };
+            const style = styles[est] || 'bg-gray-50 text-gray-600 border-gray-200';
+            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${est}</span>`;
+        }
+
+        function openModalLeadReno(polizaKey) {
+            const r = renovacionesData.find(x => ((x.leadData || x).poliza || x.poliza || '') === polizaKey);
+            if (!r) return;
+            currentLeadReno = r;
+            currentLeadVD = null;
+            const ld = r.leadData || r;
+            document.getElementById('modalLead-title').innerText = 'Gestión de Renovación';
+            document.getElementById('modalLead-subtitle').innerText = (ld.poliza || r.poliza || '') + ' - ' + (ld.asegurado || r.asegurado || '');
+            document.getElementById('modalLead-renovaciones').classList.remove('hidden');
+            document.getElementById('modalLead-vd').classList.add('hidden');
+            const info = document.getElementById('modalLead-reno-info');
+            info.innerHTML = `
+                <div><p class="text-xs text-gray-500">Póliza</p><p class="font-semibold">${ld.poliza || 'N/A'}</p></div>
+                <div><p class="text-xs text-gray-500">Asegurado</p><p class="font-semibold">${ld.asegurado || 'N/A'}</p></div>
+                <div><p class="text-xs text-gray-500">Vencimiento</p><p class="font-semibold">${formatDate(ld.vencimiento)}</p></div>
+                <div><p class="text-xs text-gray-500">Canon</p><p class="font-semibold">${ld.canon || 'N/A'}</p></div>
+            `;
+            document.getElementById('inp-reno-estado').value = r.estadoGestion || r.estado || 'Pendiente Renovacion';
+            document.getElementById('inp-reno-obs').value = '';
+            const hist = document.getElementById('modalLead-reno-historial');
+            const hg = r.historialGestiones || r.historial || [];
+            hist.innerHTML = hg.length ? hg.map(h => {
+                const txt = h.observacion || h.accion || h.texto || h.descripcion || h.detalle || h.mensaje || h.nuevaAccionTexto || '-';
+                const fecha = formatDate(h.fecha || h.fechaCreacion || h.timestamp);
+                return `<div class="flex gap-3 p-3 rounded-lg bg-gray-50 border-l-4 border-proyectiva-blue hover:bg-gray-100 transition-colors">
+                    <span class="text-xs font-medium text-gray-500 shrink-0 w-36">${fecha}</span>
+                    <span class="text-sm text-gray-700 flex-1 min-w-0">${(txt || '-').toString().replace(/</g, '&lt;')}</span>
+                </div>`;
+            }).join('') : '<p class="text-gray-500 text-sm py-4 text-center">Sin historial.</p>';
+            document.getElementById('modalLeadGestion').classList.remove('hidden');
+            document.getElementById('modalLeadGestion').classList.add('flex');
+        }
+
+        // --- VIDA Y DESEMPLEO ---
+        function getFilteredVD() {
+            const term = (document.getElementById('vd-search')?.value || '').toLowerCase();
+            const producto = document.getElementById('vd-filter-producto')?.value || '';
+            return vdData.filter(v => {
+                const nombre = (v.nombre || v.leadData?.nombre || '').toString();
+                const poliza = (v.poliza || v.numeroSolicitud || '').toString();
+                const matchTerm = !term || nombre.toLowerCase().includes(term) || poliza.toLowerCase().includes(term);
+                const prod = v.productoAsignado || v.producto || '';
+                const matchProd = !producto || prod === producto;
+                return matchTerm && matchProd;
+            });
+        }
+
+        function renderVDTab() {
+            if (!document.getElementById('vd-table-body')) return;
+            const filtered = getFilteredVD();
+            const total = vdData.length;
+            const enGestion = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('gestión') >= 0 || (v.estadoGestion || '') === 'En Gestion').length;
+            const ventas = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('venta') >= 0).length;
+            const desistidos = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('desist') >= 0).length;
+
+            document.getElementById('vd-kpi-total').innerText = total;
+            document.getElementById('vd-kpi-gestion').innerText = enGestion || total;
+            document.getElementById('vd-kpi-ventas').innerText = ventas;
+            document.getElementById('vd-kpi-desistidos').innerText = desistidos;
+
+            const tbody = document.getElementById('vd-table-body');
+            const empty = document.getElementById('vd-empty');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (empty) empty.classList.toggle('hidden', filtered.length > 0);
+            filtered.forEach((v) => {
+                const nombre = v.nombre || v.leadData?.nombre || 'N/A';
+                const solicitud = (v.numeroSolicitud || v.poliza || v.id || 'N/A').toString().replace(/'/g, "&#39;");
+                const asesor = v.asesorAsignado || v.asesor || 'N/A';
+                const producto = v.productoAsignado || v.producto || 'N/A';
+                const est = v.estadoGestion || v.estado || 'En Gestión';
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="px-6 py-4"><div class="font-bold text-proyectiva-blue">${v.numeroSolicitud || v.poliza || v.id || 'N/A'}</div><div class="text-xs text-gray-500">${formatDate(v.fechaCreacion || v.fechaIngreso)}</div></td>
+                    <td class="px-6 py-4 text-gray-800">${nombre}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${asesor}</td>
+                    <td class="px-6 py-4">${producto}</td>
+                    <td class="px-6 py-4">${getVDStatusBadge(est)}</td>
+                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadVD('${solicitud}')" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function getVDStatusBadge(est) {
+            const s = (est || '').toLowerCase();
+            const style = s.indexOf('venta') >= 0 ? 'bg-green-50 text-green-600 border-green-200' : s.indexOf('desist') >= 0 ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200';
+            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${est}</span>`;
+        }
+
+        let vdCurrentStep = 1;
+
+        function openModalLeadVD(solicitudKey) {
+            const v = vdData.find(x => (x.numeroSolicitud || x.poliza || x.id || '') === solicitudKey);
+            if (!v) return;
+            currentLeadVD = v;
+            currentLeadReno = null;
+            vdCurrentStep = 1;
+            document.getElementById('modalLead-title').innerText = 'Gestión Vida y Desempleo';
+            document.getElementById('modalLead-subtitle').innerText = (v.nombre || '') + ' - ' + (v.numeroSolicitud || v.poliza || '');
+            document.getElementById('modalLead-vd').classList.remove('hidden');
+            document.getElementById('modalLead-renovaciones').classList.add('hidden');
+            const info = document.getElementById('modalLead-vd-info');
+            const esc = (x) => (x || 'N/A').toString().replace(/</g, '&lt;');
+            info.innerHTML = `
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Nombre</p>
+                    <p class="font-semibold text-gray-800 truncate" title="${esc(v.nombre)}">${esc(v.nombre)}</p>
+                </div>
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Solicitud</p>
+                    <p class="font-semibold text-gray-800 truncate" title="${esc(v.numeroSolicitud || v.poliza)}">${esc(v.numeroSolicitud || v.poliza)}</p>
+                </div>
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Asesor</p>
+                    <p class="font-semibold text-gray-800 truncate text-sm" title="${esc(v.asesorAsignado)}">${esc(v.asesorAsignado)}</p>
+                </div>
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Producto</p>
+                    <p class="font-semibold text-gray-800 truncate" title="${esc(v.productoAsignado || v.producto)}">${esc(v.productoAsignado || v.producto)}</p>
+                </div>
+            `;
+            const prod = (v.productoAsignado || v.producto || 'vida').toLowerCase();
+            if (prod.indexOf('desempleo') >= 0) {
+                document.querySelector('input[name="vd-producto-gestion"][value="desempleo"]').checked = true;
+            } else {
+                document.querySelector('input[name="vd-producto-gestion"][value="vida"]').checked = true;
+            }
+            vdUpdateProductLabels();
+            const hist = document.getElementById('modalLead-vd-historial');
+            const hg = v.historiaGestiones || v.historialGestiones || v.historial || [];
+            hist.innerHTML = hg.length ? hg.map(h => {
+                const txt = h.observacion || h.accion || h.texto || h.descripcion || h.detalle || h.mensaje || h.nuevaAccionTexto || (h.etapas ? 'Gestión completada' : '') || '-';
+                const fecha = formatDate(h.fecha || h.fechaCreacion || h.timestamp);
+                return `<div class="flex gap-3 p-3 rounded-lg bg-gray-50 border-l-4 border-proyectiva-orange hover:bg-gray-100 transition-colors">
+                    <span class="text-xs font-medium text-gray-500 shrink-0 w-36">${fecha}</span>
+                    <span class="text-sm text-gray-700 flex-1 min-w-0">${(txt || '-').toString().replace(/</g, '&lt;')}</span>
+                </div>`;
+            }).join('') : '<p class="text-gray-500 text-sm py-4 text-center">Sin historial de gestiones.</p>';
+            vdResetForms();
+            document.getElementById('vd-guion-nombre').textContent = v.nombre || '[NOMBRE]';
+            document.getElementById('vd-cobertura-nombre').textContent = v.nombre || 'XXXX';
+            document.getElementById('vd-email-cliente').value = v.email || v.correo || '';
+            document.getElementById('vd-edad-display').textContent = '--';
+            const fn = v.fechaNacimiento || v.datosVida?.fechaNacimiento || v.datosDesempleo?.fechaNacimiento || '';
+            if (fn) {
+                document.getElementById('vd-fecha-nacimiento').value = fn.split(' ')[0].split('T')[0];
+                vdValidarEdad();
+            }
+            const canonVal = v.canon || v.datosVida?.canon || v.datosDesempleo?.canon || '';
+            const costoVal = v.costoProteccion || v.datosVida?.prima || v.datosDesempleo?.costoProteccion || '';
+            if (canonVal) document.getElementById('vd-canon').value = canonVal;
+            if (costoVal) document.getElementById('vd-costo-proteccion').value = String(costoVal).replace(/[^0-9.]/g, '');
+            vdShowStep(1);
+            document.getElementById('modalLeadGestion').classList.remove('hidden');
+            document.getElementById('modalLeadGestion').classList.add('flex');
+        }
+
+        function vdGetProducto() {
+            return document.querySelector('input[name="vd-producto-gestion"]:checked')?.value || 'vida';
+        }
+
+        function vdUpdateProductLabels() {
+            const isVida = vdGetProducto() === 'vida';
+            document.querySelectorAll('.vd-step-vida').forEach(el => el.classList.toggle('hidden', !isVida));
+            document.querySelectorAll('.vd-step-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
+            document.querySelectorAll('.vd-guion-vida').forEach(el => el.classList.toggle('hidden', !isVida));
+            document.querySelectorAll('.vd-guion-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
+            const datosVida = document.getElementById('vd-datos-vida-inicial');
+            if (datosVida) datosVida.classList.remove('hidden');
+        }
+
+        function vdCalcularEdad(fechaStr) {
+            if (!fechaStr) return null;
+            const hoy = new Date();
+            const nac = new Date(fechaStr);
+            if (isNaN(nac.getTime())) return null;
+            let edad = hoy.getFullYear() - nac.getFullYear();
+            const m = hoy.getMonth() - nac.getMonth();
+            const d = hoy.getDate() - nac.getDate();
+            if (m < 0 || (m === 0 && d < 0)) edad--;
+            return edad;
+        }
+
+        function vdValidarEdad() {
+            const fecha = document.getElementById('vd-fecha-nacimiento').value;
+            const disp = document.getElementById('vd-edad-display');
+            if (!fecha) {
+                Swal.fire('Validación', 'Ingrese la fecha de nacimiento.', 'warning');
+                document.getElementById('vd-fecha-nacimiento').classList.add('border-red-500');
+                return;
+            }
+            document.getElementById('vd-fecha-nacimiento').classList.remove('border-red-500');
+            const edad = vdCalcularEdad(fecha);
+            if (edad === null) { disp.textContent = 'Fecha inválida'; return; }
+            disp.textContent = edad + ' años';
+            if (edad < 18) {
+                Swal.fire('No asegurable', 'El cliente es menor de 18 años. La gestión debe suspenderse.', 'error');
+                disp.classList.add('text-red-600');
+                return;
+            }
+            if (edad > 79) {
+                Swal.fire('No asegurable', 'El cliente es mayor de 79 años. La gestión será desistida.', 'warning');
+                disp.classList.add('text-red-600');
+                return;
+            }
+            if (edad > 60 && vdGetProducto() === 'vida') {
+                Swal.fire('No asegurable', 'Para Seguro de Vida el cliente no puede ser mayor de 60 años. Ofrezca Seguro de Desempleo.', 'warning');
+                disp.classList.add('text-amber-600');
+                return;
+            }
+            disp.classList.remove('text-red-600', 'text-amber-600');
+        }
+
+        function vdResetForms() {
+            document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(el => { if (el.type !== 'radio' && el.type !== 'checkbox') el.value = ''; });
+            document.querySelectorAll('#modalLead-vd input[type="radio"], #modalLead-vd input[type="checkbox"]').forEach(el => el.checked = false);
+        }
+
+        function vdShowStep(step) {
+            vdCurrentStep = step;
+            document.querySelectorAll('.vd-step').forEach((el, i) => {
+                const n = i + 1;
+                el.classList.toggle('border-proyectiva-blue', n === step);
+                el.classList.toggle('text-proyectiva-blue', n === step);
+                el.classList.toggle('border-transparent', n !== step);
+                el.classList.toggle('text-gray-500', n !== step);
+                el.querySelector('span').className = 'w-8 h-8 rounded-full flex items-center justify-center text-sm ' + (n === step ? 'bg-proyectiva-blue text-white' : 'bg-gray-200 text-gray-600');
+            });
+            document.querySelectorAll('.vd-etapa').forEach(el => el.classList.add('hidden'));
+            const isVida = vdGetProducto() === 'vida';
+            let etapaId = 'vd-etapa-' + step;
+            if (step === 2) etapaId += isVida ? '-vida' : '-desempleo';
+            else if (step === 4) etapaId += isVida ? '-vida' : '-desempleo';
+            const etapa = document.getElementById(etapaId);
+            if (etapa) etapa.classList.remove('hidden');
+            document.getElementById('vd-btn-prev').classList.toggle('hidden', step === 1);
+            document.getElementById('vd-btn-next').classList.toggle('hidden', step === 5);
+            document.getElementById('vd-btn-guardar').classList.toggle('hidden', step !== 5);
+            if (step === 4 && !isVida) vdRenderCoberturas();
+        }
+
+        function vdPrevStep() {
+            if (vdCurrentStep > 1) vdShowStep(vdCurrentStep - 1);
+        }
+
+        function vdValidateStep(step) {
+            const isVida = vdGetProducto() === 'vida';
+            if (step === 1) {
+                const email = document.getElementById('vd-email-cliente').value?.trim();
+                const autoriza = document.querySelector('input[name="vd-autoriza-datos"]:checked')?.value;
+                if (!email) { Swal.fire('Validación', 'Ingrese el correo del cliente.', 'warning'); return false; }
+                if (!autoriza) { Swal.fire('Validación', 'Indique si el cliente autoriza o no.', 'warning'); return false; }
+                if (autoriza === 'no') { Swal.fire('Gestión suspendida', 'El cliente no autorizó. La gestión debe suspenderse.', 'info'); closeModalLead(); return false; }
+                const fechaNac = document.getElementById('vd-fecha-nacimiento').value;
+                const edadDisp = document.getElementById('vd-edad-display').textContent;
+                if (!fechaNac) { Swal.fire('Validación', 'Ingrese la fecha de nacimiento y haga clic en Validar Edad.', 'warning'); document.getElementById('vd-fecha-nacimiento').classList.add('border-red-500'); return false; }
+                const edad = vdCalcularEdad(fechaNac);
+                if (edad === null) { Swal.fire('Validación', 'Fecha de nacimiento inválida.', 'warning'); return false; }
+                if (edad < 18) { Swal.fire('No asegurable', 'El cliente es menor de 18 años. La gestión debe suspenderse.', 'error'); return false; }
+                if (edad > 79) { Swal.fire('No asegurable', 'El cliente es mayor de 79 años. La gestión será desistida.', 'warning'); closeModalLead(); return false; }
+                if (vdGetProducto() === 'vida' && edad > 60) { Swal.fire('No asegurable', 'Para Seguro de Vida el cliente no puede ser mayor de 60 años. Cambie a Desempleo.', 'warning'); return false; }
+                if (edadDisp === '--' || edadDisp === 'Digita fecha' || edadDisp === 'Fecha inválida') { Swal.fire('Validación', 'Haga clic en Validar Edad antes de continuar.', 'warning'); return false; }
+                const canon = parseFloat(document.getElementById('vd-canon').value) || 0;
+                const costo = parseFloat(document.getElementById('vd-costo-proteccion').value) || 0;
+                if (canon <= 0 || costo <= 0) { Swal.fire('Validación', 'Complete canon de arrendamiento y costo de protección (Cotizador).', 'warning'); return false; }
+            }
+            if (step === 2 && isVida) {
+                const p1 = document.querySelector('input[name="vd-p1-licito"]:checked')?.value;
+                const p2 = document.querySelector('input[name="vd-p2-penal"]:checked')?.value;
+                if (p1 === 'no') { Swal.fire('No asegurable', 'Las actividades no son lícitas. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                if (p2 === 'no') { Swal.fire('No asegurable', 'El cliente ha tenido proceso penal. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                const peso = parseFloat(document.getElementById('vd-peso').value);
+                const est = parseFloat(document.getElementById('vd-estatura').value);
+                const freq = document.getElementById('vd-frecuencia-deporte').value;
+                if (!peso || !est) { Swal.fire('Validación', 'Ingrese peso y estatura.', 'warning'); return false; }
+                if (!freq) { Swal.fire('Validación', 'Seleccione frecuencia de deportes.', 'warning'); return false; }
+                if (!document.querySelector('input[name="vd-hipertension"]:checked')) { Swal.fire('Validación', 'Responda todas las preguntas médicas.', 'warning'); return false; }
+                if (!document.getElementById('vd-autoriza-info-medica').checked) { Swal.fire('Validación', 'Debe autorizar el tratamiento de información médica.', 'warning'); return false; }
+            }
+            if (step === 2 && !isVida) {
+                if (!document.querySelector('input[name="vd-des-autoriza"]:checked')) { Swal.fire('Validación', 'Indique si autoriza datos personales.', 'warning'); return false; }
+                const vincula = document.querySelector('input[name="vd-tipo-vinculacion"]:checked')?.value;
+                if (!vincula) { Swal.fire('Validación', 'Seleccione tipo de vinculación.', 'warning'); return false; }
+                if (vincula === 'No asegurable' || vincula === 'No autoriza el tratamiento de datos') {
+                    Swal.fire('Gestión suspendida', 'Cliente no asegurable o no autoriza. La gestión debe suspenderse.', 'info');
+                    closeModalLead();
+                    return false;
+                }
+                if (vincula === 'Empleado' && !document.getElementById('vd-tipo-contrato').value) { Swal.fire('Validación', 'Seleccione el tipo de contrato.', 'warning'); return false; }
+                if (!document.querySelector('input[name="vd-autoriza-reaseg"]:checked')) { Swal.fire('Validación', 'Indique autorización reaseguradora.', 'warning'); return false; }
+                const ocupLicita = document.querySelector('input[name="vd-ocupacion-licita"]:checked')?.value;
+                if (!ocupLicita) { Swal.fire('Validación', 'Indique si la ocupación es lícita.', 'warning'); return false; }
+                if (ocupLicita === 'no') { Swal.fire('No asegurable', 'La ocupación no es lícita. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+            }
+            if (step === 3) {
+                const canal = document.getElementById('vd-canal-descuento').value;
+                const entidad = document.getElementById('vd-entidad-bancaria').value;
+                const num = document.getElementById('vd-numero-cuenta').value?.trim();
+                const prima = document.getElementById('vd-valor-prima').value;
+                if (!canal || !entidad || !num || !prima) { Swal.fire('Validación', 'Complete todos los campos de descuento.', 'warning'); return false; }
+                if (canal === 'Tarjeta Credito' && !document.getElementById('vd-fecha-venc-tc').value) { Swal.fire('Validación', 'Ingrese fecha de vencimiento de la tarjeta.', 'warning'); return false; }
+                if (!document.getElementById('vd-autoriza-debito').checked) { Swal.fire('Validación', 'Debe autorizar el descuento débito.', 'warning'); return false; }
+                if (!document.getElementById('vd-entiende-mora').checked) { Swal.fire('Validación', 'Debe confirmar que entiende la mora.', 'warning'); return false; }
+            }
+            if (step === 4 && isVida) {
+                const d1 = parseInt(document.getElementById('vd-ben1-designacion').value) || 0;
+                const d2 = parseInt(document.getElementById('vd-ben2-designacion').value) || 0;
+                const d3 = parseInt(document.getElementById('vd-ben3-designacion').value) || 0;
+                const sum = d1 + d2 + d3;
+                if (sum !== 100) { Swal.fire('Validación', 'La suma de designaciones de beneficiarios debe ser 100%.', 'warning'); return false; }
+                const n1 = document.getElementById('vd-ben1-nombre').value?.trim();
+                if (!n1) { Swal.fire('Validación', 'Ingrese al menos el beneficiario 1.', 'warning'); return false; }
+            }
+            if (step === 4 && !isVida) {
+                if (!document.querySelector('input[name="vd-confirma-coberturas"]:checked')) { Swal.fire('Validación', 'Confirme las coberturas.', 'warning'); return false; }
+                const conf = document.querySelector('input[name="vd-confirma-coberturas"]:checked').value;
+                if (conf === 'no') { Swal.fire('Gestión suspendida', 'El cliente no confirmó.', 'info'); return false; }
+            }
+            if (step === 5) {
+                if (!document.getElementById('vd-confirma-venta').checked) { Swal.fire('Validación', 'Debe confirmar que la venta se realizó correctamente.', 'warning'); return false; }
+            }
+            return true;
+        }
+
+        function vdNextStep() {
+            if (!vdValidateStep(vdCurrentStep)) return;
+            if (vdCurrentStep < 5) vdShowStep(vdCurrentStep + 1);
+        }
+
+        function vdRenderCoberturas() {
+            const tipo = document.querySelector('input[name="vd-tipo-vinculacion"]:checked')?.value || 'Independiente';
+            const contrato = document.getElementById('vd-tipo-contrato')?.value || '';
+            const cont = document.getElementById('vd-cobertura-contenido');
+            let html = '';
+            if (tipo === 'Independiente') {
+                html = '<ul class="list-disc list-inside space-y-2"><li>Incapacidad mínimo 15 días consecutivos: 1 canon, y por cada 30 días adicionales hasta llegar máximo a 4 cánones.</li><li>Hospitalización mínimo 7 días: 1 canon, y por cada 30 días adicionales hasta máximo 4 cánones.</li></ul>';
+            } else {
+                const textos = {
+                    'Termino Indefinido': 'Cuatro (4) cánones por despido sin justa causa. Adicional: 1 canon por incapacidad ≥15 días, hasta 4 cánones.',
+                    'Contrato Fijo': 'Cuatro (4) cánones por terminación anticipada o no renovación (antigüedad mínima 18 meses).',
+                    'Obra o Labor': 'Cuatro (4) cánones con soporte de indemnización ≥15 días.',
+                    'Libre Nombramiento': 'Cuatro (4) cánones por terminación anticipada.',
+                    'Provisionalidad': 'Cuatro (4) cánones por no renovación con antigüedad mínima 18 meses.'
+                };
+                html = '<ul class="list-disc list-inside space-y-2"><li>' + (textos[contrato] || textos['Termino Indefinido']) + '</li></ul>';
+            }
+            cont.innerHTML = html;
+        }
+
+        function guardarGestionVD() {
+            if (!vdValidateStep(5)) return;
+            if (!currentLeadVD) return;
+            const payload = {
+                lead: currentLeadVD,
+                producto: vdGetProducto(),
+                etapas: {
+                    guion: { email: document.getElementById('vd-email-cliente').value, autoriza: document.querySelector('input[name="vd-autoriza-datos"]:checked')?.value, fechaNacimiento: document.getElementById('vd-fecha-nacimiento').value, canon: document.getElementById('vd-canon').value, costoProteccion: document.getElementById('vd-costo-proteccion').value },
+                    descuento: { canal: document.getElementById('vd-canal-descuento').value, entidad: document.getElementById('vd-entidad-bancaria').value, numeroCuenta: document.getElementById('vd-numero-cuenta').value, valorPrima: document.getElementById('vd-valor-prima').value },
+                    final: { numPoliza: document.getElementById('vd-num-poliza').value, fechaVigencia: document.getElementById('vd-fecha-vigencia').value }
+                }
+            };
+            if (isAppsScript && typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); closeModalLead(); loadData(); } else showError('Error', res.message); }).withFailureHandler(err => showError('Error', err)).guardarGestionVD(JSON.stringify(payload));
+            } else {
+                if (!currentLeadVD.historiaGestiones) currentLeadVD.historiaGestiones = [];
+                const obsDetalle = 'Gestión completada (' + vdGetProducto() + '). Canon: $' + (payload.etapas?.descuento?.valorPrima || '-') + ', Póliza: ' + (payload.etapas?.final?.numPoliza || 'pendiente') + '.';
+                currentLeadVD.historiaGestiones.push({ fecha: new Date().toISOString(), observacion: obsDetalle, etapas: payload.etapas });
+                Swal.fire('Éxito', 'Gestión guardada correctamente (modo demo).', 'success');
+                closeModalLead();
+                renderVDTab();
+            }
+        }
+
+        function closeModalLead() {
+            document.getElementById('modalLeadGestion').classList.add('hidden');
+            document.getElementById('modalLeadGestion').classList.remove('flex');
+            currentLeadReno = null;
+            currentLeadVD = null;
+        }
+
+        function guardarGestionReno(e) {
+            e.preventDefault();
+            if (!currentLeadReno) return;
+            const estado = document.getElementById('inp-reno-estado').value;
+            const obs = document.getElementById('inp-reno-obs').value?.trim();
+            if (!obs) { Swal.fire('Aviso', 'Ingrese la observación.', 'warning'); return; }
+            const payload = { lead: currentLeadReno, estadoGestion: estado, observacion: obs };
+            if (isAppsScript && typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); closeModalLead(); loadData(); } else showError('Error', res.message); }).withFailureHandler(err => showError('Error', err)).guardarGestionRenovacion(JSON.stringify(payload));
+            } else {
+                if (!currentLeadReno.historialGestiones) currentLeadReno.historialGestiones = [];
+                currentLeadReno.historialGestiones.push({ fecha: new Date().toISOString(), observacion: obs, estadoGestion: estado });
+                currentLeadReno.estadoGestion = estado;
+                Swal.fire('Preview', 'Gestión guardada (modo demo).', 'success');
+                closeModalLead();
+                renderRenovacionesTab();
+            }
+        }
+
         // --- CARGA DE DATOS ---
         function loadData() {
             const syncIcon = document.getElementById('sync-icon');
@@ -735,17 +1841,37 @@
                     }
                     userInfo = json.userInfo || {};
                     var rawData = json.data || [];
-                    appData = Array.isArray(rawData) ? rawData : (rawData.adminVD || []).concat(rawData.adminPQR || [], rawData.adminRenovations || []);
+                    var roleKey = (userInfo.role || '').trim();
+                    if (Array.isArray(rawData)) {
+                        var r = roleKey.toLowerCase();
+                        if (r.indexOf('renov') >= 0) { renovacionesData = rawData; appData = []; vdData = []; }
+                        else if (r.indexOf('vida') >= 0 || r.indexOf('desempleo') >= 0 || r === 'coordinadora' || r === 'adminvidadesempleo') { vdData = rawData; appData = []; renovacionesData = []; }
+                        else { appData = rawData; renovacionesData = []; vdData = []; }
+                    } else {
+                        appData = (rawData.adminPQR || []).concat();
+                        renovacionesData = rawData.adminRenovations || [];
+                        vdData = rawData.adminVD || [];
+                        if (userInfo.role === 'superAdmin') appData = (rawData.adminPQR || []).concat(rawData.adminVD || []).filter(function(x){ return x && x.id; });
+                    }
                     listUsuarios = json.listUsuarios || [];
                     userIsAdmin = ['superAdmin','adminPQR','adminRenovations','adminVidaDesempleo'].indexOf(userInfo.role || '') >= 0;
+                    var roleKey = (userInfo.role || '').trim();
+                    var hasReno = ['Renovations','adminRenovations','superAdmin'].indexOf(roleKey) >= 0;
+                    var hasVD = ['Seguro de Vida','Seguro de Desempleo','adminVidaDesempleo','Coordinadora','superAdmin'].indexOf(roleKey) >= 0;
                     var navAdmin = document.getElementById('nav-admin');
+                    var navReno = document.getElementById('nav-renovaciones');
+                    var navVD = document.getElementById('nav-vd');
                     if (navAdmin) navAdmin.style.display = userIsAdmin ? '' : 'none';
+                    if (navReno) navReno.style.display = hasReno ? '' : 'none';
+                    if (navVD) navVD.style.display = hasVD ? '' : 'none';
                     var un = document.getElementById('user-name');
                     var ue = document.getElementById('user-email');
                     if (un) un.textContent = userInfo.nombre || 'Asesor';
                     if (ue) ue.textContent = userInfo.correo || '';
                     processData();
                     populateAsesoresSelect();
+                    if (renovacionesData.length) renderRenovacionesTab();
+                    if (vdData.length) renderVDTab();
                     if (document.getElementById('view-admin') && !document.getElementById('view-admin').classList.contains('hidden')) renderAdminTab();
                     syncIcon.classList.remove('animate-spin');
                 }).withFailureHandler(function(e) {
@@ -753,16 +1879,38 @@
                     syncIcon.classList.remove('animate-spin');
                 }).getDataUser();
             } else {
-                userInfo = { role: 'adminPQR', nombre: 'Asesor Demo', correo: 'asesor@proyectiva.com' };
+                userInfo = { role: 'superAdmin', nombre: 'Asesor Demo', correo: 'asesor@proyectiva.com' };
                 userIsAdmin = true;
                 listUsuarios = [{ nombre: 'María Gaitán', correo: 'maria.gaitan@proyectivaseguros.com', novedad: '' }, { nombre: 'Carlos Zamora', correo: 'carlos.zamora@proyectivaseguros.com', novedad: '' }];
+                const mockRenovaciones = [
+                    { leadData: { poliza: 'POL-2025-001', asegurado: 'Juan Pérez García', vencimiento: '2026-03-15', canon: '$850.000' }, nombreAgente: 'María Gaitán', estadoGestion: 'Pendiente Renovacion', historialGestiones: [] },
+                    { leadData: { poliza: 'POL-2025-002', asegurado: 'Ana Martínez López', vencimiento: '2026-02-28', canon: '$1.200.000' }, nombreAgente: 'Carlos Zamora', estadoGestion: 'Poliza Renovada', historialGestiones: [{ fecha: '2026-02-20', observacion: 'Cliente renovó vía app.' }] },
+                    { leadData: { poliza: 'POL-2025-003', asegurado: 'Luis Rodríguez', vencimiento: '2026-01-10', canon: '$650.000' }, nombreAgente: 'María Gaitán', estadoGestion: 'VENCIDO', historialGestiones: [] }
+                ];
+                const mockVD = [
+                    { nombre: 'Pedro Sánchez', numeroSolicitud: 'SOL-VD-001', asesorAsignado: 'maria.gaitan@proyectivaseguros.com', productoAsignado: 'Seguro de Vida', canon: 850000, costoProteccion: 45000, fechaNacimiento: '1985-01-15', datosVida: { Estado: 'Cotizado', Prima: '$45.000/mes' }, datosDesempleo: {}, historiaGestiones: [
+                        { fecha: '2026-02-20T09:20:00', observacion: 'Contacto inicial. Cliente autorizó datos personales.' },
+                        { fecha: '2026-02-21T10:31:00', observacion: 'Declaración de asegurabilidad completada. Pendiente información médica.' },
+                        { fecha: '2026-02-22T10:06:00', observacion: 'Información médica validada. Enviado a emisión.' }
+                    ] },
+                    { nombre: 'Laura Gómez', numeroSolicitud: 'SOL-VD-002', asesorAsignado: 'carlos.zamora@proyectivaseguros.com', productoAsignado: 'Seguro de Desempleo', canon: 1200000, costoProteccion: 52000, fechaNacimiento: '1990-06-20', estadoGestion: 'Venta', datosVida: {}, datosDesempleo: { Estado: 'Emitido', Cobertura: '6 meses' }, historiaGestiones: [
+                        { fecha: '2026-02-22T14:00:00', observacion: 'Autorizaciones completadas. Tipo vinculación: Empleado.' },
+                        { fecha: '2026-02-22T15:30:00', observacion: 'Póliza emitida. Número: POL-DES-2026-002.' }
+                    ] }
+                ];
                 setTimeout(function() {
                     appData = [...mockData];
+                    renovacionesData = mockRenovaciones;
+                    vdData = mockVD;
                     document.getElementById('nav-admin').style.display = '';
+                    document.getElementById('nav-renovaciones').style.display = '';
+                    document.getElementById('nav-vd').style.display = '';
                     document.getElementById('user-name').textContent = userInfo.nombre;
                     document.getElementById('user-email').textContent = userInfo.correo;
                     processData();
                     populateAsesoresSelect();
+                    renderRenovacionesTab();
+                    renderVDTab();
                     syncIcon.classList.remove('animate-spin');
                 }, 800);
             }
