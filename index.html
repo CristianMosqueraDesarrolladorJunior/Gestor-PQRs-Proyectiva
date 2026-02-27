@@ -73,7 +73,7 @@
                 <i class="fas fa-inbox w-5 shrink-0"></i>
                 <span class="sidebar-text">Gestión de PQRs</span>
             </a>
-            <a href="#" onclick="switchTab('admin'); return false;" id="nav-admin" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
+            <a href="#" onclick="switchTab('admin'); return false;" id="nav-admin" style="display:none" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
                 <i class="fas fa-users-cog w-5 shrink-0"></i>
                 <span class="sidebar-text">Administración</span>
             </a>
@@ -83,8 +83,8 @@
             <div class="flex items-center gap-3">
                 <img src="https://ui-avatars.com/api/?name=Asesor+Activo&background=FF6B00&color=fff" alt="User" class="w-10 h-10 rounded-full border-2 border-white shrink-0">
                 <div>
-                    <p class="text-sm font-semibold">Asesor Activo</p>
-                    <p class="text-xs text-blue-300">asesor@proyectiva.com</p>
+                    <p class="text-sm font-semibold" id="user-name">Asesor Activo</p>
+                    <p class="text-xs text-blue-300" id="user-email">asesor@proyectiva.com</p>
                 </div>
             </div>
         </div>
@@ -501,7 +501,9 @@
         // --- MOCK DE DATOS PARA PREVIEW (Simula lo que devuelve Apps Script) ---
         // En Apps Script real, usamos google.script.run
         const isAppsScript = typeof google !== 'undefined' && google.script;
-        
+        let userInfo = {};
+        let userIsAdmin = false;
+
         const mockData = [
             {
                 rowNumber: 2, id: 'PQR-2026-001', tipo: 'QUEJA', fechaCreacion: '2026-02-17T10:08:27',
@@ -562,6 +564,10 @@
 
         // --- NAVEGACIÓN ---
         function switchTab(tabId) {
+            if (tabId === 'admin' && !userIsAdmin) {
+                switchTab('dashboard');
+                return;
+            }
             document.querySelectorAll('aside nav a').forEach(a => {
                 a.classList.remove('bg-blue-800', 'text-white');
                 a.classList.add('text-blue-200');
@@ -720,23 +726,41 @@
             syncIcon.classList.add('animate-spin');
 
             if (isAppsScript) {
-                Promise.all([
-                    new Promise((ok, err) => google.script.run.withSuccessHandler(ok).withFailureHandler(err).getDataUser()),
-                    new Promise((ok, err) => google.script.run.withSuccessHandler(ok).withFailureHandler(err).getUsuariosGestion())
-                ]).then(([pqrRes, userRes]) => {
-                    const pqr = JSON.parse(pqrRes);
-                    const usr = JSON.parse(userRes);
-                    if (pqr.status === 'success') appData = pqr.data || [];
-                    if (usr.status === 'success') listUsuarios = usr.data || [];
+                google.script.run.withSuccessHandler(function(res) {
+                    var json = typeof res === 'string' ? JSON.parse(res) : res;
+                    if (json.status === 'error') {
+                        showError('Error', json.message || 'Error al cargar datos');
+                        syncIcon.classList.remove('animate-spin');
+                        return;
+                    }
+                    userInfo = json.userInfo || {};
+                    var rawData = json.data || [];
+                    appData = Array.isArray(rawData) ? rawData : (rawData.adminVD || []).concat(rawData.adminPQR || [], rawData.adminRenovations || []);
+                    listUsuarios = json.listUsuarios || [];
+                    userIsAdmin = ['superAdmin','adminPQR','adminRenovations','adminVidaDesempleo'].indexOf(userInfo.role || '') >= 0;
+                    var navAdmin = document.getElementById('nav-admin');
+                    if (navAdmin) navAdmin.style.display = userIsAdmin ? '' : 'none';
+                    var un = document.getElementById('user-name');
+                    var ue = document.getElementById('user-email');
+                    if (un) un.textContent = userInfo.nombre || 'Asesor';
+                    if (ue) ue.textContent = userInfo.correo || '';
                     processData();
                     populateAsesoresSelect();
                     if (document.getElementById('view-admin') && !document.getElementById('view-admin').classList.contains('hidden')) renderAdminTab();
                     syncIcon.classList.remove('animate-spin');
-                }).catch(e => { showError("Error de conexión", e); syncIcon.classList.remove('animate-spin'); });
+                }).withFailureHandler(function(e) {
+                    showError("Error de conexión", e);
+                    syncIcon.classList.remove('animate-spin');
+                }).getDataUser();
             } else {
+                userInfo = { role: 'adminPQR', nombre: 'Asesor Demo', correo: 'asesor@proyectiva.com' };
+                userIsAdmin = true;
                 listUsuarios = [{ nombre: 'María Gaitán', correo: 'maria.gaitan@proyectivaseguros.com', novedad: '' }, { nombre: 'Carlos Zamora', correo: 'carlos.zamora@proyectivaseguros.com', novedad: '' }];
-                setTimeout(() => {
+                setTimeout(function() {
                     appData = [...mockData];
+                    document.getElementById('nav-admin').style.display = '';
+                    document.getElementById('user-name').textContent = userInfo.nombre;
+                    document.getElementById('user-email').textContent = userInfo.correo;
                     processData();
                     populateAsesoresSelect();
                     syncIcon.classList.remove('animate-spin');

@@ -39,22 +39,23 @@ function getDataUser() {
 
   switch (expertise) {
     case 'superAdmin':
-      dataUsers = getUsuariosGestion(expertise)
+      dataUsers = getUsuariosGestion(expertise);
       dataFront = getDataForSuperAdmin();
       break;
     case 'adminRenovations':
-      dataUsers = getUsuariosGestion(expertise)
+      dataUsers = getUsuariosGestion(expertise);
       dataFront = getDataForAdminRenovations();
       break;
     case 'adminPQR':
-      dataUsers = getUsuariosGestion(expertise)
+      dataUsers = getUsuariosGestion(expertise);
       dataFront = getDataForAdminPqr();
       break;
     case 'adminVidaDesempleo':
-      dataUsers = getUsuariosGestion(expertise)
+      dataUsers = getUsuariosGestion(expertise);
       dataFront = getDataForAdminVD();
       break;
     case 'pqr':
+      dataUsers = getUsuariosGestion('pqr');
       dataFront = getPQRsDataForPQR();
       break;
     case 'Renovations':
@@ -69,7 +70,14 @@ function getDataUser() {
     default:
       return JSON.stringify({ status: 'error', message: 'Usuario sin rol definido para acceder a los PQRs.' });
   }
-  return dataFront;
+  var parsed = typeof dataFront === 'string' ? JSON.parse(dataFront) : { data: dataFront };
+  var listData = (dataUsers && typeof dataUsers === 'string') ? JSON.parse(dataUsers) : { data: [] };
+  return JSON.stringify({
+    status: 'success',
+    userInfo: { role: expertise, nombre: nombreAnalista, correo: correoActivo },
+    data: (parsed && parsed.data) ? parsed.data : (Array.isArray(parsed) ? parsed : []),
+    listUsuarios: (listData && listData.data) ? listData.data : []
+  });
 }
 
 function getDataForSuperAdmin() {
@@ -519,21 +527,24 @@ function getUsuariosGestion(admin) {
     const data = sheet.getDataRange().getValues();
     const usuarios = [];
 
-    let dataFiltrada = data.filter(row => {
-      const rol = row[3] ? row[3].toString().trim() : '';
-      return Object.keys(dataUsers).some(key => dataUsers[key] === rol);
+    let dataFilter = data.filter(row => {
+      const rol = row[3]? row[3].toString().trim().toLowerCase() : '';
+      return Object.keys(dataUsers).some(function(key) { return dataUsers[key] === rol; });
     });
-
-    for (let i = 1; i < dataFiltrada.length; i++) {
-      const correo = (data[i][2] || '').toString().trim();
+    
+    for (let i = 1; i < dataFilter.length; i++) {
+      var row = data[i];
+      var rol = (row[3] || '').toString().trim();
+      if (!Object.keys(dataUsers).some(function(key) { return dataUsers[key] === rol; })) continue;
+      var correo = (row[2] || '').toString().trim();
       if (!correo) continue;
       usuarios.push({
         rowNumber: i + 1,
-        no: data[i][0],
-        nombre: (data[i][1] || '').toString().trim(),
+        no: row[0],
+        nombre: (row[1] || '').toString().trim(),
         correo: correo,
-        seguro: (data[i][3] || '').toString().trim(),
-        novedad: (data[i][4] || '').toString().trim()
+        seguro: rol,
+        novedad: (row[4] || '').toString().trim()
       });
     }
     return JSON.stringify({ status: 'success', data: usuarios });
