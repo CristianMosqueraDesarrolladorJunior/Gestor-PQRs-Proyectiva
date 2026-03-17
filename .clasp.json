@@ -1,6 +1,6 @@
 {
   "scriptId": "1inYxW272QX_CKvHpFhDDKQc2AIwmca1_JWo34bFLXrKYNqot6HgEUMmz",
-  "rootDir": "",
+  "rootDir": ".",
   "scriptExtensions": [
     ".js",
     ".gs"
@@ -11,6 +11,26 @@
   "jsonExtensions": [
     ".json"
   ],
-  "filePushOrder": [],
+  "filePushOrder": [
+    "infrastructure/config/AppConfig.js",
+    "infrastructure/config/SheetConfig.js",
+    "domain/shared/BaseEntity.js",
+    "domain/shared/ValueObjects.js",
+    "infrastructure/spreadsheet/SpreadsheetAdapter.js",
+    "domain/pqr/PQR.js",
+    "domain/pqr/PQRRepository.js",
+    "domain/leads/Lead.js",
+    "domain/users/User.js",
+    "domain/users/Role.js",
+    "domain/leads/LeadRepository.js",
+    "domain/users/UserRepository.js",
+    "application/auth/Authenticate.js",
+    "application/pqr/UpdatePQR.js",
+    "application/leads/SaveLeadGestionVD.js",
+    "application/leads/SaveLeadGestionRenovacion.js",
+    "application/auth/Authorize.js",
+    "entry/doGet.js",
+    "interface/html/index.html"
+  ],
   "skipSubdirectories": false
 }

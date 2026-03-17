@@ -1,0 +1,9 @@
+# Excluir código legacy y duplicados
+src/**
+Código.js
+index.html
+
+# Git y otros
+.git/**
+.gitignore
+node_modules/**

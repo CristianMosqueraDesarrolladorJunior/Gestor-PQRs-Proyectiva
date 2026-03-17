@@ -146,3 +146,36 @@ Gestor-PQRs-Proyectiva/
 - Google Drive API
 - Google Mail API
 - HTML/CSS/JavaScript (Frontend)
+
+---
+
+## Despliegue con CLASP
+
+1. **Estructura**: El código está en la raíz del proyecto (`domain/`, `application/`, `infrastructure/`, `interface/`, `entry/`). Los archivos legacy (`Código.js`, `index.html` raíz, `src/`) se excluyen vía `.claspignore`.
+
+2. **Push al proyecto GAS**:
+   ```bash
+   clasp push
+   ```
+   Si dice "Script is already up to date", significa que ya está sincronizado.
+
+3. **Deploy** (crear o actualizar despliegue web):
+   ```bash
+   clasp deploy
+   ```
+
+4. **Verificar estado**: `clasp status` muestra los archivos rastreados.
+
+---
+
+## Migración desde código monolítico
+
+El código original (`Código.js`) ha sido reemplazado por la estructura DDD en `src/`. Las funciones expuestas al frontend se mantienen:
+
+- `getDataUser()` - Autenticación y datos según rol
+- `updatePQR(pqrDataStr)` - Actualizar PQR
+- `createUsuario(userData)` - Crear usuario
+- `updateUsuarioNovedad(correo, novedad)` - Actualizar novedad
+- `getAsesores()` - Listar asesores PQR
+- `guardarGestionVD(payloadStr)` - Guardar gestión Vida/Desempleo *(nuevo)*
+- `guardarGestionRenovacion(payloadStr)` - Guardar gestión Renovaciones *(nuevo)*
