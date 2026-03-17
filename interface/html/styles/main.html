@@ -1,0 +1,158 @@
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #F8FAFC;
+    }
+
+    .glass-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 9999px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+
+    #sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100%;
+    }
+
+    .sidebar-collapsed {
+        transform: translateX(-100%);
+        pointer-events: none;
+    }
+
+    /* Animaciones para el Modal */
+    .modal-enter {
+        animation: fadeIn 0.3s ease-out forwards;
+    }
+
+    .modal-content-enter {
+        animation: slideUp 0.3s ease-out forwards;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .vd-etapa {
+        animation: fadeIn 0.25s ease-out;
+    }
+
+    .vd-step {
+        transition: all 0.2s ease;
+    }
+
+    .vd-step:hover {
+        background: rgba(0, 42, 84, 0.05);
+    }
+
+    .vd-guion-card {
+        border-left: 4px solid #002A54;
+    }
+
+    .vd-input-focus:focus {
+        box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.3);
+    }
+
+    /* Modal VD: texto legible, sin cortes */
+    .vd-modal-content p,
+    .vd-modal-content label,
+    .vd-modal-content span {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    .vd-modal-content .min-w-0 {
+        min-width: 0;
+    }
+
+    .vd-cell-truncate {
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vd-cell-truncate:hover {
+        white-space: normal;
+        overflow: visible;
+    }
+
+    /* Tablas: texto visible, wrap en celdas largas */
+    #pqr-table td,
+    #reno-table td,
+    #vd-table td {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Modal PQR: texto legible sin cortes */
+    #gestionModal .modal-content-enter p,
+    #gestionModal .modal-content-enter label,
+    #gestionModal .modal-content-enter span,
+    #gestionModal .modal-content-enter td {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* Una sola barra de scroll en modal */
+    #modalLeadGestion .modal-scroll-area {
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    /* Modal ajustes dashboard */
+    #modalDashboardSettings {
+        backdrop-filter: blur(4px);
+    }
+
+    /* KPIs compactos: 4 por fila */
+    #dashboard-kpis > div {
+        min-width: 0;
+    }
+
+    @media (max-width: 640px) {
+        #dashboard-kpis .text-xl {
+            font-size: 1.125rem;
+        }
+    }
+</style>

@@ -1,0 +1,2047 @@
+<script>
+        // ESTADO GLOBAL
+        let appData = [];
+        let renovacionesData = [];
+        let vdData = [];
+        let listUsuarios = [];
+        let currentPQR = null;
+        let currentLeadReno = null;
+        let currentLeadVD = null;
+        let chartInstance = null;
+        let chartInstanceReno = null;
+        let chartInstanceVD = null;
+        let filterKPI = null;
+        let selectedOperation = null; // 'pqr' | 'renovaciones' | 'vd' | null = ver todo
+        let sidebarCollapsed = false;
+
+        // --- MOCK DE DATOS PARA PREVIEW (Simula lo que devuelve Apps Script) ---
+        // En Apps Script real, usamos google.script.run
+        const isAppsScript = typeof google !== 'undefined' && google.script;
+        let userInfo = {};
+        let userIsAdmin = false;
+        let dashboardMetrics = null;
+
+        /** Registro de KPIs por rol - Escalable: agregar nuevos en el array correspondiente */
+        const DASHBOARD_KPI_REGISTRY = {
+            pqr: [
+                { id: 'kpi-total', key: 'total', label: 'Total PQRs', icon: 'fa-layer-group', color: 'blue', filterKey: 'section-pqr' },
+                { id: 'kpi-proceso', key: 'proceso', label: 'En Proceso', icon: 'fa-clock', color: 'yellow', filterKey: 'proceso' },
+                { id: 'kpi-resueltas', key: 'resueltas', label: 'Resueltas', icon: 'fa-check-circle', color: 'green', filterKey: 'resueltas' },
+                { id: 'kpi-vencidas', key: 'vencidas', label: 'SLA Vencido', icon: 'fa-exclamation-triangle', color: 'red', filterKey: 'vencidas' }
+            ],
+            renovaciones: [
+                { id: 'kpi-reno-total', key: 'total', label: 'Total Pólizas', icon: 'fa-file-contract', color: 'blue', filterKey: 'section-renovaciones' },
+                { id: 'kpi-reno-vencer', key: 'porVencer', label: 'Por Vencer', icon: 'fa-exclamation-triangle', color: 'amber', filterKey: 'section-renovaciones' },
+                { id: 'kpi-reno-renovadas', key: 'renovadas', label: 'Renovadas', icon: 'fa-check-circle', color: 'green', filterKey: 'section-renovaciones' },
+                { id: 'kpi-reno-vencidas', key: 'vencidas', label: 'Vencidas', icon: 'fa-times-circle', color: 'red', filterKey: 'section-renovaciones' }
+            ],
+            vd: [
+                { id: 'kpi-vd-total', key: 'total', label: 'Total Leads', icon: 'fa-users', color: 'blue', filterKey: 'section-vd' },
+                { id: 'kpi-vd-gestion', key: 'enGestion', label: 'En Gestión', icon: 'fa-spinner', color: 'yellow', filterKey: 'section-vd' },
+                { id: 'kpi-vd-ventas', key: 'ventas', label: 'Ventas', icon: 'fa-check-circle', color: 'green', filterKey: 'section-vd' },
+                { id: 'kpi-vd-desistidos', key: 'desistidos', label: 'Desistidos', icon: 'fa-times', color: 'gray', filterKey: 'section-vd' }
+            ]
+        };
+
+        const SECTION_LABELS = { pqr: 'PQRs', renovaciones: 'Renovaciones', vd: 'Vida y Desempleo' };
+
+        const ROLE_LABELS = {
+            superAdmin: 'Administrador General',
+            adminPQR: 'Admin PQR',
+            adminRenovations: 'Admin Renovaciones',
+            adminVidaDesempleo: 'Admin Vida y Desempleo',
+            Coordinadora: 'Coordinadora',
+            pqr: 'Gestor PQR',
+            Renovations: 'Renovaciones',
+            'Seguro de Vida': 'Seguro de Vida',
+            'Seguro de Desempleo': 'Seguro de Desempleo'
+        };
+
+        function getDashboardSettings() {
+            try {
+                var s = localStorage.getItem('dashboardSettings');
+                return s ? JSON.parse(s) : { chartType: 'doughnut', density: 'normal', visibleSections: {} };
+            } catch (e) { return { chartType: 'doughnut', density: 'normal', visibleSections: {} }; }
+        }
+        function setDashboardSettings(settings) {
+            localStorage.setItem('dashboardSettings', JSON.stringify(settings));
+        }
+
+        const mockData = [
+            {
+                rowNumber: 2, id: 'PQR-2026-001', tipo: 'QUEJA', fechaCreacion: '2026-02-17T10:08:27',
+                estado: 'Pendiente', prioridad: 'Alta', asesor: 'Sin Asignar', fechaAsignacion: '', fechaCierre: '',
+                informacion: {
+                    solicitante: { nombreCompleto: "María González López", tipoDocumento: "CC", numeroDocumento: "9876543210", email: "maria.gonzalez@example.com", telefono: "3109876543" },
+                    tramite: { tipoSolicitud: "QUEJA", productoRelacionado: "Póliza Vida", asunto: "Cobro indebido", descripcionDetallada: "Me han cobrado dos veces la cuota de este mes en mi tarjeta." }
+                },
+                historial: []
+            },
+            {
+                rowNumber: 3, id: 'PQR-2026-002', tipo: 'PETICION', fechaCreacion: '2026-02-16T14:30:00',
+                estado: 'En Proceso', prioridad: 'Media', asesor: 'maria.gaitan@proyectivaseguros.com', fechaAsignacion: '2026-02-16T15:00:00', fechaCierre: '',
+                informacion: {
+                    solicitante: { nombreCompleto: "Carlos Ruiz", tipoDocumento: "CE", numeroDocumento: "123456", email: "carlos.ruiz@mail.com", telefono: "3201234567" },
+                    tramite: { tipoSolicitud: "PETICION", productoRelacionado: "Póliza Auto", asunto: "Certificado de cobertura", descripcionDetallada: "Solicito certificado urgente para trámite de tránsito." }
+                },
+                historial: [
+                    { fecha: '2026-02-16T15:00:00', usuario: 'maria.gaitan@proyectivaseguros.com', accion: 'PQR asignada e iniciada validación en sistema core.', estadoAnterior: 'Pendiente', estadoNuevo: 'En Proceso' }
+                ]
+            }
+        ];
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            const renoSearch = document.getElementById('reno-search');
+            const renoFilter = document.getElementById('reno-filter-estado');
+            if (renoSearch) renoSearch.addEventListener('input', () => { renoPage = 1; renderRenovacionesTab(); });
+            if (renoFilter) renoFilter.addEventListener('change', () => { renoPage = 1; renderRenovacionesTab(); });
+            const vdSearch = document.getElementById('vd-search');
+            const vdFilter = document.getElementById('vd-filter-producto');
+            if (vdSearch) vdSearch.addEventListener('input', () => { vdPage = 1; renderVDTab(); });
+            if (vdFilter) vdFilter.addEventListener('change', () => { vdPage = 1; renderVDTab(); });
+            document.querySelectorAll('input[name="vd-producto-gestion"]').forEach(r => r.addEventListener('change', () => { vdUpdateProductLabels(); vdValidarEdad(); vdShowStep(vdCurrentStep); }));
+            document.querySelectorAll('input[name="vd-tipo-vinculacion"]').forEach(r => r.addEventListener('change', function() {
+                const c = document.getElementById('vd-tipo-contrato-container');
+                if (c) c.classList.toggle('hidden', this.value !== 'Empleado');
+                vdValidarTipoVinculacion();
+                if (vdCurrentStep === 4 && vdGetProducto() === 'desempleo') vdRenderCoberturas();
+            }));
+            const canalDesc = document.getElementById('vd-canal-descuento');
+            if (canalDesc) canalDesc.addEventListener('change', function() {
+                const tc = document.getElementById('vd-tc-fields');
+                const franq = document.getElementById('vd-franquicia-descuento');
+                if (tc) tc.classList.toggle('hidden', this.value !== 'Tarjeta Credito');
+                if (franq) { franq.required = this.value === 'Tarjeta Credito'; franq.value = ''; }
+                vdValidateAccountNumber();
+                vdValidarDescuento();
+            });
+            // IMC se calcula vía onchange/oninput en vdCalcularIMC()
+            ['vd-numero-cuenta','vd-entidad-bancaria','vd-valor-prima'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', function() {
+                    const g = { 'vd-numero-cuenta': 'vd-guion-num-cuenta', 'vd-entidad-bancaria': 'vd-guion-entidad', 'vd-valor-prima': 'vd-guion-prima' };
+                    const t = document.getElementById(g[id]);
+                    if (t) t.textContent = this.value || '____';
+                });
+            });
+            ['vd-canon','vd-administracion','vd-costo-proteccion'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.addEventListener('input', vdActualizarGuionCotizador);
+                if (el) el.addEventListener('change', vdActualizarGuionCotizador);
+            });
+            document.querySelectorAll('.vd-step').forEach((el, i) => {
+                el.addEventListener('click', () => {
+                    const step = i + 1;
+                    if (step <= vdCurrentStep) vdShowStep(step);
+                });
+            });
+        });
+
+        function toggleSidebar() {
+            sidebarCollapsed = !sidebarCollapsed;
+            const sidebar = document.getElementById('sidebar');
+            const main = document.getElementById('main-content');
+            if (sidebar) sidebar.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+            if (main) main.style.marginLeft = sidebarCollapsed ? '0' : '16rem';
+        }
+
+        function getFilteredData() {
+            let data = appData;
+            if (filterKPI === 'proceso') data = data.filter(p => p.estado === 'En Proceso');
+            else if (filterKPI === 'resueltas') data = data.filter(p => p.estado === 'Resuelto' || p.estado === 'Cerrado');
+            else if (filterKPI === 'vencidas') data = data.filter(p => p.estado !== 'Resuelto' && p.estado !== 'Cerrado' && (new Date() - new Date(p.fechaCreacion)) > (3 * 24 * 60 * 60 * 1000));
+            const term = (document.getElementById('searchInput')?.value || '').toLowerCase();
+            const estado = document.getElementById('filterEstado')?.value || '';
+            return data.filter(pqr => {
+                const matchTerm = !term || pqr.id.toLowerCase().includes(term) || (pqr.informacion?.solicitante?.nombreCompleto || '').toLowerCase().includes(term) || (pqr.informacion?.solicitante?.numeroDocumento || '').includes(term);
+                const matchEstado = !estado || pqr.estado === estado;
+                return matchTerm && matchEstado;
+            });
+        }
+
+        function setKpiFilter(k) {
+            if (k && k.startsWith('section-')) {
+                selectedOperation = k.replace('section-', '');
+                filterKPI = (selectedOperation === 'pqr') ? null : null;
+            } else if (k === null || k === undefined || k === '') {
+                selectedOperation = null;
+                filterKPI = null;
+            } else {
+                selectedOperation = 'pqr';
+                filterKPI = k;
+            }
+            pqrPage = 1;
+            recentPage = 1;
+            var onDashboard = document.getElementById('view-dashboard') && !document.getElementById('view-dashboard').classList.contains('hidden');
+            if (onDashboard) {
+                renderDashboard();
+            } else {
+                var filtered = getFilteredData();
+                renderTable(filtered);
+                renderRecentTable(filtered);
+                drawChart(filtered);
+            }
+        }
+
+        // --- NAVEGACIÓN ---
+        function switchTab(tabId) {
+            if (tabId === 'admin' && !userIsAdmin) {
+                switchTab('dashboard');
+                return;
+            }
+            document.querySelectorAll('aside nav a').forEach(a => {
+                a.classList.remove('bg-blue-800', 'text-white');
+                a.classList.add('text-blue-200');
+            });
+            const navEl = document.getElementById(`nav-${tabId}`);
+            if (navEl) {
+                navEl.classList.add('bg-blue-800', 'text-white');
+                navEl.classList.remove('text-blue-200');
+            }
+
+            document.getElementById('view-dashboard').classList.add('hidden');
+            document.getElementById('view-pqrs').classList.add('hidden');
+            const viewAdmin = document.getElementById('view-admin');
+            if (viewAdmin) viewAdmin.classList.add('hidden');
+            const viewReno = document.getElementById('view-renovaciones');
+            const viewVD = document.getElementById('view-vd');
+            if (viewReno) viewReno.classList.add('hidden');
+            if (viewVD) viewVD.classList.add('hidden');
+            const viewEl = document.getElementById(`view-${tabId}`);
+            if (viewEl) viewEl.classList.remove('hidden');
+
+            if (tabId === 'dashboard') renderDashboard();
+            if (tabId === 'admin') renderAdminTab();
+            if (tabId === 'renovaciones') renderRenovacionesTab();
+            if (tabId === 'vd') renderVDTab();
+
+            const titles = { dashboard: 'Dashboard Ejecutivo', pqrs: 'Gestión Integral de PQRs', admin: 'Panel de Administración', renovaciones: 'Gestión de Renovaciones', vd: 'Vida y Desempleo' };
+            document.getElementById('header-title').innerText = titles[tabId] || 'Proyectiva';
+        }
+
+        // --- ADMIN: Renderizar y acciones ---
+        function renderAdminTab() {
+            const sinAsignar = appData.filter(p => !p.asesor || p.asesor === 'Sin Asignar' || p.asesor === '');
+            const asignadas = appData.filter(p => p.asesor && p.asesor !== 'Sin Asignar');
+            const enProceso = appData.filter(p => p.estado === 'En Proceso');
+
+            document.getElementById('admin-kpi-sinasignar').innerText = sinAsignar.length;
+            document.getElementById('admin-kpi-asignadas').innerText = asignadas.length;
+            document.getElementById('admin-kpi-usuarios').innerText = listUsuarios.length;
+            document.getElementById('admin-kpi-proceso').innerText = enProceso.length;
+
+            const tbody1 = document.getElementById('admin-sinasignar-body');
+            const empty1 = document.getElementById('admin-sinasignar-empty');
+            const tbody2 = document.getElementById('admin-asignadas-body');
+            const empty2 = document.getElementById('admin-asignadas-empty');
+            const tbody3 = document.getElementById('admin-novedades-body');
+            const empty3 = document.getElementById('admin-novedades-empty');
+
+            if (tbody1) {
+                tbody1.innerHTML = '';
+                if (empty1) empty1.classList.toggle('hidden', sinAsignar.length > 0);
+                const total1 = sinAsignar.length;
+                const pag1 = sinAsignar.slice((adminSinAsignarPage - 1) * PAGE_SIZE, adminSinAsignarPage * PAGE_SIZE);
+                renderPagination('admin-sinasignar-pagination', adminSinAsignarPage, total1, 'setAdminSinAsignarPage');
+                pag1.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-semibold text-proyectiva-blue">${p.id}</td>
+                        <td class="px-6 py-4 text-gray-800">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
+                        <td class="px-6 py-4">${getStatusBadge(p.estado)}</td>
+                        <td class="px-6 py-4"><select class="admin-asignar-select border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-[220px] focus:ring-2 focus:ring-proyectiva-orange" data-row="${p.rowNumber}"><option value="">Seleccionar asesor...</option>${(listUsuarios || []).map(u => `<option value="${u.correo}">${u.nombre}</option>`).join('')}</select></td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="openModalByRow(${p.rowNumber})" class="text-proyectiva-blue hover:text-proyectiva-orange font-medium text-sm mr-2" title="Gestionar">Gestionar</button>
+                            <button onclick="asignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">Asignar</button>
+                        </td>
+                    `;
+                    tbody1.appendChild(tr);
+                });
+            }
+
+            if (tbody2) {
+                tbody2.innerHTML = '';
+                if (empty2) empty2.classList.toggle('hidden', asignadas.length > 0);
+                const total2 = asignadas.length;
+                const pag2 = asignadas.slice((adminAsignadasPage - 1) * PAGE_SIZE, adminAsignadasPage * PAGE_SIZE);
+                renderPagination('admin-asignadas-pagination', adminAsignadasPage, total2, 'setAdminAsignadasPage');
+                pag2.forEach(p => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-semibold text-proyectiva-blue">${p.id}</td>
+                        <td class="px-6 py-4 text-gray-800">${p.informacion?.solicitante?.nombreCompleto || 'N/A'}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${p.asesor}</td>
+                        <td class="px-6 py-4"><select class="admin-reasignar-select border border-gray-300 rounded-lg px-3 py-2 text-sm w-full max-w-[220px] focus:ring-2 focus:ring-proyectiva-orange" data-row="${p.rowNumber}">${(listUsuarios || []).map(u => `<option value="${u.correo}" ${u.correo === p.asesor ? 'selected' : ''}>${u.nombre}</option>`).join('')}</select></td>
+                        <td class="px-6 py-4 text-center">
+                            <button onclick="openModalByRow(${p.rowNumber})" class="text-proyectiva-blue hover:text-proyectiva-orange font-medium text-sm mr-2" title="Gestionar">Gestionar</button>
+                            <button onclick="reasignarPQRAdmin(${p.rowNumber}, this)" class="bg-proyectiva-orange hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">Reasignar</button>
+                        </td>
+                    `;
+                    tbody2.appendChild(tr);
+                });
+            }
+
+            if (tbody3) {
+                tbody3.innerHTML = '';
+                if (empty3) empty3.classList.toggle('hidden', listUsuarios.length > 0);
+                const total3 = listUsuarios.length;
+                const pag3 = listUsuarios.slice((adminNovedadesPage - 1) * PAGE_SIZE, adminNovedadesPage * PAGE_SIZE);
+                renderPagination('admin-novedades-pagination', adminNovedadesPage, total3, 'setAdminNovedadesPage');
+                pag3.forEach(u => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 transition-colors';
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 font-medium text-gray-800">${u.nombre}</td>
+                        <td class="px-6 py-4 text-sm text-gray-600">${u.correo}</td>
+                        <td class="px-6 py-4"><span class="px-2 py-1 text-xs font-medium rounded ${u.seguro === 'admin' ? 'bg-proyectiva-light text-proyectiva-blue' : 'bg-gray-100 text-gray-700'}">${u.seguro || 'pqr'}</span></td>
+                        <td class="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate">${u.novedad || '-'}</td>
+                        <td class="px-6 py-4"><input type="text" class="admin-novedad-input border border-gray-300 rounded-lg px-3 py-2 text-sm w-full focus:ring-2 focus:ring-proyectiva-orange" placeholder="Escriba la novedad..." data-correo="${u.correo}" value="${u.novedad || ''}"></td>
+                        <td class="px-6 py-4 text-center"><button onclick="guardarNovedadAdmin(this)" data-correo="${(u.correo || '').replace(/"/g, '&quot;')}" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-semibold transition-colors">Guardar</button></td>
+                    `;
+                    tbody3.appendChild(tr);
+                });
+            }
+        }
+
+        function setAdminSinAsignarPage(p) {
+            const sinAsignar = appData.filter(x => !x.asesor || x.asesor === 'Sin Asignar' || x.asesor === '');
+            const maxP = Math.max(1, Math.ceil(sinAsignar.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { adminSinAsignarPage = p; renderAdminTab(); }
+        }
+        function setAdminAsignadasPage(p) {
+            const asignadas = appData.filter(x => x.asesor && x.asesor !== 'Sin Asignar');
+            const maxP = Math.max(1, Math.ceil(asignadas.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { adminAsignadasPage = p; renderAdminTab(); }
+        }
+        function setAdminNovedadesPage(p) {
+            const maxP = Math.max(1, Math.ceil((listUsuarios || []).length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { adminNovedadesPage = p; renderAdminTab(); }
+        }
+        function asignarPQRAdmin(rowNumber, btn) {
+            const row = btn.closest('tr');
+            const select = row?.querySelector('.admin-asignar-select');
+            const asesor = select?.value?.trim();
+            if (!asesor) { Swal.fire('Aviso', 'Seleccione un usuario.', 'warning'); return; }
+            const pqr = appData.find(p => p.rowNumber === rowNumber);
+            if (!pqr) return;
+            const payload = { ...pqr, estadoAnterior: pqr.estado, estado: pqr.estado, asesor, nuevaAccionTexto: 'Asignación desde panel admin' };
+            if (isAppsScript) {
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(e => { showError('Error', e); btn.disabled = false; }).updatePQR(JSON.stringify(payload));
+            }
+        }
+
+        function reasignarPQRAdmin(rowNumber, btn) {
+            const row = btn.closest('tr');
+            const select = row.querySelector('.admin-reasignar-select');
+            const asesor = select?.value;
+            if (!asesor) return;
+            const pqr = appData.find(p => p.rowNumber === rowNumber);
+            if (!pqr) return;
+            const payload = { ...pqr, estadoAnterior: pqr.estado, estado: pqr.estado, asesor, nuevaAccionTexto: 'Reasignación desde panel admin' };
+            if (isAppsScript) {
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(e => { showError('Error', e); btn.disabled = false; }).updatePQR(JSON.stringify(payload));
+            }
+        }
+
+        function guardarNovedadAdmin(btn) {
+            const correo = btn.getAttribute('data-correo') || '';
+            const row = btn.closest('tr');
+            const input = row?.querySelector('.admin-novedad-input');
+            const novedad = input?.value || '';
+            if (isAppsScript && correo) {
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(e => { showError('Error', e); btn.disabled = false; }).updateUsuarioNovedad(correo, novedad);
+            }
+        }
+
+        function crearUsuario(e) {
+            e.preventDefault();
+            const payload = { nombre: document.getElementById('admin-nombre').value, correo: document.getElementById('admin-correo').value, seguro: document.getElementById('admin-seguro').value, novedad: document.getElementById('admin-novedad').value };
+            if (isAppsScript) {
+                const btn = e.target.querySelector('button[type="submit"]');
+                btn.disabled = true;
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); e.target.reset(); loadData(); } else showError('Error', res.message); btn.disabled = false; }).withFailureHandler(err => { showError('Error', err); btn.disabled = false; }).createUsuario(payload);
+            } else {
+                Swal.fire('Preview', 'En producción se crearía el usuario.', 'info');
+                e.target.reset();
+            }
+        }
+
+        // --- RENOVACIONES ---
+        function getFilteredRenovaciones() {
+            const term = (document.getElementById('reno-search')?.value || '').toLowerCase();
+            const estado = document.getElementById('reno-filter-estado')?.value || '';
+            return renovacionesData.filter(r => {
+                const ld = r.leadData || r;
+                const poliza = (ld.poliza || r.poliza || '').toString();
+                const asegurado = (ld.asegurado || r.asegurado || '').toString();
+                const matchTerm = !term || poliza.toLowerCase().includes(term) || asegurado.toLowerCase().includes(term);
+                const est = r.estadoGestion || r.estado || '';
+                const matchEstado = !estado || est === estado;
+                return matchTerm && matchEstado;
+            });
+        }
+
+        function renderRenovacionesTab() {
+            if (!document.getElementById('reno-table-body')) return;
+            const filtered = getFilteredRenovaciones();
+            const total = renovacionesData.length;
+            const porVencer = renovacionesData.filter(r => (r.estadoGestion || r.estado || '') === 'Pendiente Renovacion').length;
+            const renovadas = renovacionesData.filter(r => (r.estadoGestion || r.estado || '') === 'Poliza Renovada').length;
+            const vencidas = renovacionesData.filter(r => (r.estadoGestion || r.estado || '') === 'VENCIDO').length;
+
+            document.getElementById('reno-kpi-total').innerText = total;
+            document.getElementById('reno-kpi-vencer').innerText = porVencer;
+            document.getElementById('reno-kpi-renovadas').innerText = renovadas;
+            document.getElementById('reno-kpi-vencidas').innerText = vencidas;
+
+            const tbody = document.getElementById('reno-table-body');
+            const empty = document.getElementById('reno-empty');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (empty) empty.classList.toggle('hidden', filtered.length > 0);
+            const totalReno = filtered.length;
+            const paginated = filtered.slice((renoPage - 1) * PAGE_SIZE, renoPage * PAGE_SIZE);
+            renderPagination('reno-pagination', renoPage, totalReno, 'setRenoPage');
+            paginated.forEach((r) => {
+                const ld = r.leadData || r;
+                const poliza = (ld.poliza || r.poliza || '').toString().replace(/'/g, "&#39;");
+                const asegurado = ld.asegurado || r.asegurado || 'N/A';
+                const agente = r.nombreAgente || r.agente || 'N/A';
+                const est = r.estadoGestion || r.estado || 'Pendiente';
+                const venc = ld.vencimiento || r.vencimiento || '';
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="px-6 py-4"><div class="font-bold text-proyectiva-blue">${ld.poliza || r.poliza || 'N/A'}</div><div class="text-xs text-gray-500">${formatDate(venc)}</div></td>
+                    <td class="px-6 py-4 text-gray-800">${asegurado}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${agente}</td>
+                    <td class="px-6 py-4">${getRenoStatusBadge(est)}</td>
+                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadReno('${poliza}')" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function setRenoPage(p) {
+            const filtered = getFilteredRenovaciones();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { renoPage = p; renderRenovacionesTab(); }
+        }
+        function getRenoStatusBadge(est) {
+            const styles = { 'Pendiente Renovacion': 'bg-amber-50 text-amber-600 border-amber-200', 'Poliza Renovada': 'bg-green-50 text-green-600 border-green-200', 'VENCIDO': 'bg-red-50 text-red-600 border-red-200', 'Caso Especial': 'bg-purple-50 text-purple-600 border-purple-200' };
+            const style = styles[est] || 'bg-gray-50 text-gray-600 border-gray-200';
+            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${est}</span>`;
+        }
+
+        function openModalLeadReno(polizaKey) {
+            const r = renovacionesData.find(x => ((x.leadData || x).poliza || x.poliza || '') === polizaKey);
+            if (!r) return;
+            currentLeadReno = r;
+            currentLeadVD = null;
+            const ld = r.leadData || r;
+            document.getElementById('modalLead-title').innerText = 'Gestión de Renovación';
+            document.getElementById('modalLead-subtitle').innerText = (ld.poliza || r.poliza || '') + ' - ' + (ld.asegurado || r.asegurado || '');
+            document.getElementById('modalLead-renovaciones').classList.remove('hidden');
+            document.getElementById('modalLead-vd').classList.add('hidden');
+            const info = document.getElementById('modalLead-reno-info');
+            info.innerHTML = `
+                <div><p class="text-xs text-gray-500">Póliza</p><p class="font-semibold">${ld.poliza || 'N/A'}</p></div>
+                <div><p class="text-xs text-gray-500">Asegurado</p><p class="font-semibold">${ld.asegurado || 'N/A'}</p></div>
+                <div><p class="text-xs text-gray-500">Vencimiento</p><p class="font-semibold">${formatDate(ld.vencimiento)}</p></div>
+                <div><p class="text-xs text-gray-500">Canon</p><p class="font-semibold">${ld.canon || 'N/A'}</p></div>
+            `;
+            document.getElementById('inp-reno-estado').value = r.estadoGestion || r.estado || 'Pendiente Renovacion';
+            document.getElementById('inp-reno-obs').value = '';
+            const hist = document.getElementById('modalLead-reno-historial');
+            const hg = r.historialGestiones || r.historial || [];
+            hist.innerHTML = hg.length ? hg.map(h => {
+                const txt = h.observacion || h.accion || h.texto || h.descripcion || h.detalle || h.mensaje || h.nuevaAccionTexto || '-';
+                const fecha = formatDate(h.fecha || h.fechaCreacion || h.timestamp);
+                return `<div class="flex gap-3 p-3 rounded-lg bg-gray-50 border-l-4 border-proyectiva-blue hover:bg-gray-100 transition-colors">
+                    <span class="text-xs font-medium text-gray-500 shrink-0 w-36">${fecha}</span>
+                    <span class="text-sm text-gray-700 flex-1 min-w-0">${(txt || '-').toString().replace(/</g, '&lt;')}</span>
+                </div>`;
+            }).join('') : '<p class="text-gray-500 text-sm py-4 text-center">Sin historial.</p>';
+            document.getElementById('modalLeadGestion').classList.remove('hidden');
+            document.getElementById('modalLeadGestion').classList.add('flex');
+        }
+
+        // --- VIDA Y DESEMPLEO ---
+        function getFilteredVD() {
+            const term = (document.getElementById('vd-search')?.value || '').toLowerCase();
+            const producto = document.getElementById('vd-filter-producto')?.value || '';
+            return vdData.filter(v => {
+                const nombre = (v.nombre || v.leadData?.nombre || '').toString();
+                const poliza = (v.poliza || v.numeroSolicitud || '').toString();
+                const matchTerm = !term || nombre.toLowerCase().includes(term) || poliza.toLowerCase().includes(term);
+                const prod = v.productoAsignado || v.producto || '';
+                const matchProd = !producto || prod === producto;
+                return matchTerm && matchProd;
+            });
+        }
+
+        function renderVDTab() {
+            if (!document.getElementById('vd-table-body')) return;
+            const filtered = getFilteredVD();
+            const total = vdData.length;
+            const enGestion = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('gestión') >= 0 || (v.estadoGestion || '') === 'En Gestion').length;
+            const ventas = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('venta') >= 0).length;
+            const desistidos = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('desist') >= 0).length;
+
+            document.getElementById('vd-kpi-total').innerText = total;
+            document.getElementById('vd-kpi-gestion').innerText = enGestion || total;
+            document.getElementById('vd-kpi-ventas').innerText = ventas;
+            document.getElementById('vd-kpi-desistidos').innerText = desistidos;
+
+            const tbody = document.getElementById('vd-table-body');
+            const empty = document.getElementById('vd-empty');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            if (empty) empty.classList.toggle('hidden', filtered.length > 0);
+            const totalVD = filtered.length;
+            const paginated = filtered.slice((vdPage - 1) * PAGE_SIZE, vdPage * PAGE_SIZE);
+            renderPagination('vd-pagination', vdPage, totalVD, 'setVdPage');
+            paginated.forEach((v) => {
+                const nombre = v.nombre || v.leadData?.nombre || 'N/A';
+                const solicitud = (v.numeroSolicitud || v.poliza || v.id || 'N/A').toString().replace(/'/g, "&#39;");
+                const asesor = v.asesorAsignado || v.asesor || 'N/A';
+                const producto = v.productoAsignado || v.producto || 'N/A';
+                const est = v.estadoGestion || v.estado || 'En Gestión';
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors';
+                tr.innerHTML = `
+                    <td class="px-6 py-4"><div class="font-bold text-proyectiva-blue">${v.numeroSolicitud || v.poliza || v.id || 'N/A'}</div><div class="text-xs text-gray-500">${formatDate(v.fechaCreacion || v.fechaIngreso)}</div></td>
+                    <td class="px-6 py-4 text-gray-800">${nombre}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${asesor}</td>
+                    <td class="px-6 py-4">${producto}</td>
+                    <td class="px-6 py-4">${getVDStatusBadge(est)}</td>
+                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadVD('${solicitud}')" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function setVdPage(p) {
+            const filtered = getFilteredVD();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { vdPage = p; renderVDTab(); }
+        }
+        function getVDStatusBadge(est) {
+            const s = (est || '').toLowerCase();
+            const style = s.indexOf('venta') >= 0 ? 'bg-green-50 text-green-600 border-green-200' : s.indexOf('desist') >= 0 ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200';
+            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${est}</span>`;
+        }
+
+        let vdCurrentStep = 1;
+
+        function openModalLeadVD(solicitudKey) {
+            const v = vdData.find(x => (x.numeroSolicitud || x.poliza || x.id || '') === solicitudKey);
+            if (!v) return;
+            currentLeadVD = v;
+            currentLeadReno = null;
+            vdCurrentStep = 1;
+            document.getElementById('modalLead-title').innerText = 'Gestión Vida y Desempleo';
+            document.getElementById('modalLead-subtitle').innerText = (v.nombre || '') + ' - ' + (v.numeroSolicitud || v.poliza || '');
+            document.getElementById('modalLead-vd').classList.remove('hidden');
+            document.getElementById('modalLead-renovaciones').classList.add('hidden');
+            const info = document.getElementById('modalLead-vd-info');
+            const esc = (x) => (x || 'N/A').toString().replace(/</g, '&lt;');
+            info.innerHTML = `
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Nombre</p>
+                    <p class="font-semibold text-gray-800 truncate" title="${esc(v.nombre)}">${esc(v.nombre)}</p>
+                </div>
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Solicitud</p>
+                    <p class="font-semibold text-gray-800 truncate" title="${esc(v.numeroSolicitud || v.poliza)}">${esc(v.numeroSolicitud || v.poliza)}</p>
+                </div>
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Asesor</p>
+                    <p class="font-semibold text-gray-800 truncate text-sm" title="${esc(v.asesorAsignado)}">${esc(v.asesorAsignado)}</p>
+                </div>
+                <div class="min-w-0 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Producto</p>
+                    <p class="font-semibold text-gray-800 truncate" title="${esc(v.productoAsignado || v.producto)}">${esc(v.productoAsignado || v.producto)}</p>
+                </div>
+            `;
+            const prod = (v.productoAsignado || v.producto || 'vida').toLowerCase();
+            if (prod.indexOf('desempleo') >= 0) {
+                document.querySelector('input[name="vd-producto-gestion"][value="desempleo"]').checked = true;
+            } else {
+                document.querySelector('input[name="vd-producto-gestion"][value="vida"]').checked = true;
+            }
+            vdUpdateProductLabels();
+            const hist = document.getElementById('modalLead-vd-historial');
+            const hg = v.historiaGestiones || v.historialGestiones || v.historial || [];
+            hist.innerHTML = hg.length ? hg.map(h => {
+                const txt = h.observacion || h.accion || h.texto || h.descripcion || h.detalle || h.mensaje || h.nuevaAccionTexto || (h.etapas ? 'Gestión completada' : '') || '-';
+                const fecha = formatDate(h.fecha || h.fechaCreacion || h.timestamp);
+                return `<div class="flex gap-3 p-3 rounded-lg bg-gray-50 border-l-4 border-proyectiva-orange hover:bg-gray-100 transition-colors">
+                    <span class="text-xs font-medium text-gray-500 shrink-0 w-36">${fecha}</span>
+                    <span class="text-sm text-gray-700 flex-1 min-w-0">${(txt || '-').toString().replace(/</g, '&lt;')}</span>
+                </div>`;
+            }).join('') : '<p class="text-gray-500 text-sm py-4 text-center">Sin historial de gestiones.</p>';
+            vdResetForms();
+            const nom = v.nombre || '[NOMBRE]';
+            document.getElementById('vd-guion-nombre').textContent = nom;
+            document.getElementById('vd-cobertura-nombre').textContent = nom;
+            const nomDes = document.getElementById('vd-guion-nombre-des');
+            if (nomDes) nomDes.textContent = nom;
+            document.getElementById('vd-email-cliente').value = v.email || v.correo || v.leadData?.correo || '';
+            document.getElementById('vd-edad-display').textContent = '--';
+            const fn = v.fechaNacimiento || v.datosVida?.fechaNacimiento || v.datosDesempleo?.fechaNacimiento || v.leadData?.fechaNacimiento || '';
+            if (fn) {
+                document.getElementById('vd-fecha-nacimiento').value = fn.split(' ')[0].split('T')[0];
+                vdValidarEdad();
+            }
+            const canonVal = v.canon || v.datosVida?.canon || v.datosDesempleo?.canon || v.leadData?.canon || '';
+            const adminVal = v.datosVida?.administracion || v.datosDesempleo?.administracion || 0;
+            const costoVal = v.costoProteccion || v.datosVida?.prima || v.datosDesempleo?.costoProteccion || v.leadData?.costoProteccion || '';
+            if (canonVal) document.getElementById('vd-canon').value = String(canonVal).replace(/[^0-9.]/g, '');
+            if (adminVal) document.getElementById('vd-administracion').value = String(adminVal).replace(/[^0-9.]/g, '');
+            if (costoVal) document.getElementById('vd-costo-proteccion').value = String(costoVal).replace(/[^0-9.]/g, '');
+            const tipoDoc = v.datosVida?.tipoDocumento || v.datosDesempleo?.tipoDocumento || v.leadData?.tipoDocumento || '';
+            if (tipoDoc) {
+                const sel = document.getElementById('vd-tipo-documento');
+                if (sel && ['CC','CE','PAS'].includes(tipoDoc)) sel.value = tipoDoc;
+            }
+            const genero = v.datosVida?.genero || v.datosDesempleo?.genero || v.leadData?.genero || '';
+            if (genero) {
+                const sel = document.getElementById('vd-genero');
+                if (sel && ['M','F'].includes(genero)) sel.value = genero;
+            }
+            const nombreEmp = v.datosDesempleo?.nombreEmpleador || v.leadData?.nombreEmpleador || '';
+            if (nombreEmp) document.getElementById('vd-nombre-empleador').value = nombreEmp;
+            const tipoVincula = v.datosDesempleo?.tipoVinculacion || v.leadData?.tipoVinculacion || '';
+            if (tipoVincula) {
+                const r = document.querySelector(`input[name="vd-tipo-vinculacion"][value="${tipoVincula}"]`);
+                if (r) r.checked = true;
+            }
+            vdActualizarGuionCotizador();
+            vdShowStep(1);
+            document.getElementById('modalLeadGestion').classList.remove('hidden');
+            document.getElementById('modalLeadGestion').classList.add('flex');
+        }
+
+        function vdGetProducto() {
+            return document.querySelector('input[name="vd-producto-gestion"]:checked')?.value || 'vida';
+        }
+
+        /** Actualiza guion cotizador con valores en tiempo real */
+        function vdActualizarGuionCotizador() {
+            const canon = parseFloat(document.getElementById('vd-canon')?.value) || 0;
+            const admin = parseFloat(document.getElementById('vd-administracion')?.value) || 0;
+            const costo = parseFloat(document.getElementById('vd-costo-proteccion')?.value) || 0;
+            const total = canon + admin;
+            const fmt = (n) => n ? new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n) : '[---]';
+            const gCanon = document.getElementById('vd-guion-canon');
+            const gAdmin = document.getElementById('vd-guion-admin');
+            const gTotal = document.getElementById('vd-guion-total');
+            const gCosto = document.getElementById('vd-guion-costo');
+            if (gCanon) gCanon.textContent = fmt(canon) || '[CANON]';
+            if (gAdmin) gAdmin.textContent = fmt(admin) || '[ADMIN]';
+            if (gTotal) gTotal.textContent = fmt(total) || '[TOTAL]';
+            if (gCosto) gCosto.textContent = fmt(costo) || '[COSTO_PROTECCION]';
+        }
+
+        function vdUpdateProductLabels() {
+            const isVida = vdGetProducto() === 'vida';
+            document.querySelectorAll('.vd-step-vida').forEach(el => el.classList.toggle('hidden', !isVida));
+            document.querySelectorAll('.vd-step-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
+            document.querySelectorAll('.vd-guion-vida').forEach(el => el.classList.toggle('hidden', !isVida));
+            document.querySelectorAll('.vd-guion-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
+            const datosVida = document.getElementById('vd-datos-vida-inicial');
+            if (datosVida) datosVida.classList.remove('hidden');
+        }
+
+        function vdCalcularEdad(fechaStr) {
+            if (!fechaStr) return null;
+            const hoy = new Date();
+            const nac = new Date(fechaStr);
+            if (isNaN(nac.getTime())) return null;
+            let edad = hoy.getFullYear() - nac.getFullYear();
+            const m = hoy.getMonth() - nac.getMonth();
+            const d = hoy.getDate() - nac.getDate();
+            if (m < 0 || (m === 0 && d < 0)) edad--;
+            return edad;
+        }
+
+        /** Helper: muestra feedback visual en tiempo real (borde rojo/verde + mensaje) */
+        function vdMostrarFeedbackCampo(el, valido, mensaje) {
+            if (!el) return;
+            el.classList.remove('border-red-500', 'border-green-500');
+            el.classList.add(valido ? 'border-green-500' : 'border-red-500');
+            let msgEl = document.getElementById((el.id || 'vd-msg') + '-msg');
+            if (!msgEl && el.id) {
+                msgEl = document.createElement('p');
+                msgEl.id = el.id + '-msg';
+                msgEl.className = 'text-sm mt-1';
+                el.parentNode.appendChild(msgEl);
+            }
+            if (msgEl) {
+                msgEl.textContent = mensaje || '';
+                msgEl.className = 'text-sm mt-1 ' + (valido ? 'text-green-600' : 'text-red-600');
+                msgEl.classList.toggle('hidden', !mensaje);
+            }
+        }
+
+        /** Validador EMAIL - tiempo real */
+        function vdValidarEmail() {
+            const el = document.getElementById('vd-email-cliente');
+            const v = (el?.value || '').trim();
+            if (!v) { vdMostrarFeedbackCampo(el, false, 'El correo es requerido.'); return false; }
+            const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!regex.test(v)) { vdMostrarFeedbackCampo(el, false, 'Formato de correo inválido.'); return false; }
+            vdMostrarFeedbackCampo(el, true, '');
+            return true;
+        }
+
+        /** Validador COTIZADOR - tiempo real */
+        function vdValidarCotizador() {
+            const canonEl = document.getElementById('vd-canon');
+            const costoEl = document.getElementById('vd-costo-proteccion');
+            const canon = parseFloat(canonEl?.value) || 0;
+            const costo = parseFloat(costoEl?.value) || 0;
+            if (canon <= 0) { vdMostrarFeedbackCampo(canonEl, false, 'El canon debe ser mayor a 0.'); return false; }
+            vdMostrarFeedbackCampo(canonEl, true, '');
+            if (costo <= 0) { vdMostrarFeedbackCampo(costoEl, false, 'El costo de protección debe ser mayor a 0.'); return false; }
+            vdMostrarFeedbackCampo(costoEl, true, '');
+            return true;
+        }
+
+        /** Validador AUTORIZA DATOS - tiempo real (NO = suspender) */
+        function vdValidarAutorizaDatos() {
+            const val = document.querySelector('input[name="vd-autoriza-datos"]:checked')?.value;
+            const cont = document.getElementById('vd-autoriza-datos-msg');
+            if (!cont) return val === 'si';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-exclamation-triangle mr-1"></i>El cliente NO autorizó. La gestión debe SUSPENDERSE.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador P1 LÍCITO (Vida) - NO = no asegurable */
+        function vdValidarP1Licito() {
+            const val = document.querySelector('input[name="vd-p1-licito"]:checked')?.value;
+            const cont = document.getElementById('vd-p1-licito-msg');
+            if (!cont) return val !== 'no';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. Actividades no lícitas. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador Información Médica (Vida) - condiciones que implican NO ASEGURABLE */
+        function vdValidarInfoMedica() {
+            const condNoAseg = [
+                { name: 'vd-sida', msg: 'SIDA' },
+                { name: 'vd-vih', msg: 'VIH positivo' }
+            ];
+            const condAdvertencia = [
+                { name: 'vd-cancer', msg: 'Cáncer o tumores' },
+                { name: 'vd-derrame', msg: 'Derrame o trombosis cerebral' },
+                { name: 'vd-psicologicas', msg: 'Enfermedades psicológicas/psiquiátricas' }
+            ];
+            const cont = document.getElementById('vd-info-medica-msg');
+            if (!cont) return true;
+            for (const c of condNoAseg) {
+                const val = document.querySelector(`input[name="${c.name}"]:checked`)?.value;
+                if (val === 'si') {
+                    cont.innerHTML = `<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. ${c.msg}. La gestión debe suspenderse.</span>`;
+                    cont.classList.remove('hidden');
+                    return false;
+                }
+            }
+            for (const c of condAdvertencia) {
+                const val = document.querySelector(`input[name="${c.name}"]:checked`)?.value;
+                if (val === 'si') {
+                    cont.innerHTML = `<span class="text-amber-700 font-medium"><i class="fas fa-exclamation-triangle mr-1"></i>Advertencia: ${c.msg}. Evalúe con el área médica antes de continuar.</span>`;
+                    cont.classList.remove('hidden');
+                    return true;
+                }
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Auto-detecta franquicia por número y valida (medio de pago) */
+        function vdAutoFranquiciaYValidar() {
+            const canal = document.getElementById('vd-canal-descuento')?.value;
+            const numEl = document.getElementById('vd-numero-cuenta');
+            const franqEl = document.getElementById('vd-franquicia-descuento');
+            if (canal === 'Tarjeta Credito' && numEl && franqEl) {
+                const franq = vdDetectarFranquiciaPorNumero(numEl.value);
+                if (franq && franqEl.value !== franq) {
+                    franqEl.value = franq;
+                    const opt = franqEl.querySelector(`option[value="${franq}"]`);
+                    if (opt) { franqEl.value = franq; franqEl.classList.add('border-green-500'); }
+                }
+            }
+            vdValidateAccountNumber();
+            vdValidarDescuento();
+        }
+
+        /** Detecta franquicia por BIN (primeros dígitos de tarjeta) */
+        function vdDetectarFranquiciaPorNumero(num) {
+            const n = (num || '').replace(/[\s-]/g, '');
+            if (n.length < 4) return '';
+            const d1 = n.charAt(0);
+            const d2 = n.substring(0, 2);
+            const d4 = n.substring(0, 4);
+            const d4n = parseInt(d4, 10);
+            if (d1 === '4') return 'VISA';
+            if (d2 === '34' || d2 === '37') return 'AMERICAN EXPRESS';
+            if (d2 === '36' || d2 === '38') return 'DINERS CLUB';
+            if (d4n >= 3000 && d4n <= 3059) return 'DINERS CLUB';
+            if (d2 === '51' || d2 === '52' || d2 === '53' || d2 === '54' || d2 === '55') return 'MASTER CARD';
+            if (d4n >= 2221 && d4n <= 2720) return 'MASTER CARD';
+            return '';
+        }
+
+        /** Validador P2 PENAL (Vida) - NO = no asegurable */
+        function vdValidarP2Penal() {
+            const val = document.querySelector('input[name="vd-p2-penal"]:checked')?.value;
+            const cont = document.getElementById('vd-p2-penal-msg');
+            if (!cont) return val !== 'no';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. Proceso penal. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador DES AUTORIZA (Desempleo etapa 2) - NO = suspender */
+        function vdValidarDesAutoriza() {
+            const val = document.querySelector('input[name="vd-des-autoriza"]:checked')?.value;
+            const cont = document.getElementById('vd-des-autoriza-msg');
+            if (!cont) return val === 'si';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-exclamation-triangle mr-1"></i>El cliente NO autorizó. La gestión debe SUSPENDERSE.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador TIPO VINCULACIÓN (Desempleo) - No asegurable / No autoriza = suspender */
+        function vdValidarTipoVinculacion() {
+            const val = document.querySelector('input[name="vd-tipo-vinculacion"]:checked')?.value;
+            const cont = document.getElementById('vd-tipo-vinculacion-msg');
+            if (!cont) return !['No asegurable','No autoriza el tratamiento de datos'].includes(val);
+            if (val === 'No asegurable' || val === 'No autoriza el tratamiento de datos') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE / NO AUTORIZA. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador OCUPACIÓN LÍCITA (Desempleo) - NO = no asegurable */
+        function vdValidarOcupacionLicita() {
+            const val = document.querySelector('input[name="vd-ocupacion-licita"]:checked')?.value;
+            const cont = document.getElementById('vd-ocupacion-licita-msg');
+            if (!cont) return val !== 'no';
+            if (val === 'no') {
+                cont.innerHTML = '<span class="text-red-600 font-semibold"><i class="fas fa-ban mr-1"></i>NO ASEGURABLE. Ocupación no lícita. La gestión debe suspenderse.</span>';
+                cont.classList.remove('hidden');
+                return false;
+            }
+            cont.innerHTML = '';
+            cont.classList.add('hidden');
+            return true;
+        }
+
+        /** Validador y gestión BENEFICIARIOS - suma 100%, bloqueo y auto % */
+        function vdValidarBeneficiarios() {
+            const b1 = document.getElementById('vd-ben1-designacion');
+            const b2 = document.getElementById('vd-ben2-designacion');
+            const b3 = document.getElementById('vd-ben3-designacion');
+            const c2 = document.getElementById('vd-ben2-container');
+            const c3 = document.getElementById('vd-ben3-container');
+            let d1 = parseFloat(b1?.value) || 0;
+            let d2 = parseFloat(b2?.value) || 0;
+            let d3 = parseFloat(b3?.value) || 0;
+
+            if (d1 >= 100) {
+                if (b1) b1.value = 100;
+                d1 = 100;
+                if (b2) { b2.value = 0; b2.disabled = true; }
+                if (b3) { b3.value = 0; b3.disabled = true; }
+                if (c2) c2.classList.add('opacity-50', 'pointer-events-none');
+                if (c3) c3.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                if (b2) b2.disabled = false;
+                if (c2) c2.classList.remove('opacity-50', 'pointer-events-none');
+                const restante12 = 100 - d1;
+                if (d2 >= restante12) {
+                    if (b2) b2.value = restante12;
+                    d2 = restante12;
+                    if (b3) { b3.value = 0; b3.disabled = true; }
+                    if (c3) c3.classList.add('opacity-50', 'pointer-events-none');
+                } else {
+                    if (b3) b3.disabled = false;
+                    if (c3) c3.classList.remove('opacity-50', 'pointer-events-none');
+                    const auto3 = 100 - d1 - d2;
+                    if (auto3 >= 0 && b3 && !b3.disabled) b3.value = Math.round(auto3);
+                }
+            }
+            d1 = parseFloat(b1?.value) || 0;
+            d2 = parseFloat(b2?.value) || 0;
+            d3 = parseFloat(b3?.value) || 0;
+            const sum = d1 + d2 + d3;
+            const msgEl = document.getElementById('vd-ben-sum-msg');
+            const restEl = document.getElementById('vd-ben-restante');
+            if (restEl) { restEl.textContent = 'Restante: ' + (100 - sum) + '%'; restEl.classList.remove('hidden'); }
+            if (!msgEl) return sum === 100;
+            if (sum !== 100) {
+                msgEl.textContent = 'La suma debe ser 100% (actual: ' + sum + '%)';
+                msgEl.classList.remove('hidden');
+                return false;
+            }
+            msgEl.textContent = '';
+            msgEl.classList.add('hidden');
+            return true;
+        }
+
+        /** Sugiere % para ben2 cuando ben1 cambia */
+        function vdSugerirBen2() {
+            const d1 = parseFloat(document.getElementById('vd-ben1-designacion')?.value) || 0;
+            const b2 = document.getElementById('vd-ben2-designacion');
+            if (b2 && d1 > 0 && d1 < 100) b2.placeholder = 'Ej: ' + (100 - d1) + '%';
+        }
+
+        /** Calcula IMC y asegurabilidad en tiempo real (base CRM) */
+        function vdCalcularIMC() {
+            const p = parseFloat(document.getElementById('vd-peso')?.value);
+            const e = parseFloat(document.getElementById('vd-estatura')?.value) / 100;
+            const imcEl = document.getElementById('vd-imc');
+            const asegEl = document.getElementById('vd-asegurable');
+            if (!p || !e || e <= 0) {
+                if (imcEl) imcEl.value = '';
+                if (asegEl) { asegEl.value = ''; asegEl.placeholder = 'Ingrese peso y estatura'; asegEl.className = 'w-full border rounded-lg px-3 py-2 font-semibold text-center'; }
+                return;
+            }
+            const imc = p / (e * e);
+            if (imcEl) imcEl.value = imc.toFixed(2);
+            let status = '';
+            let cls = 'w-full border rounded-lg px-3 py-2 font-semibold text-center ';
+            if (imc > 15 && imc < 30) {
+                status = 'ASEGURABLE';
+                cls += 'bg-green-100 text-green-800 border-green-300';
+            } else if (imc >= 30 && imc < 31) {
+                status = 'ASEGURABLE CON CONSULTA MÉDICA';
+                cls += 'bg-amber-100 text-amber-800 border-amber-300';
+            } else {
+                status = 'NO ASEGURABLE';
+                cls += 'bg-red-100 text-red-800 border-red-300';
+            }
+            if (asegEl) { asegEl.value = status; asegEl.className = cls; asegEl.placeholder = ''; }
+        }
+
+        /** Configuración longitudes cuenta/tarjeta por entidad (base CRM El Libertador) */
+        const vdAccountLengthConfig = {
+            "AV VILLAS": { "Cuenta Ahorros": [9] },
+            "BANCO CAJA SOCIAL": { "Cuenta Ahorros": [11] },
+            "BANCO DAVIVIENDA": { "Cuenta Ahorros": [12], "Cuenta Corriente": [12] },
+            "BANCO DE BOGOTA": { "Cuenta Ahorros": [9, 10, 11], "Cuenta Corriente": [9, 10, 11] },
+            "BANCO FALABELLA": { "Cuenta Ahorros": [16], "Tarjeta Credito": [16] },
+            "BANCOLOMBIA": { "Cuenta Ahorros": [11], "Cuenta Corriente": [11] },
+            "BANCO OCCIDENTE": { "Cuenta Ahorros": [9] },
+            "BANCO POPULAR": { "Cuenta Ahorros": [9] },
+            "BANCO SCOTIABANK": { "Cuenta Ahorros": [9], "Cuenta Corriente": [9] },
+            "BBVA": { "Cuenta Ahorros": [9], "Cuenta Corriente": [9] },
+            "CITIBANK": { "Cuenta Ahorros": [10], "Cuenta Corriente": [10] },
+            "CITY BANK": { "Cuenta Ahorros": [10], "Cuenta Corriente": [10] },
+            "COLPATRIA": { "Cuenta Ahorros": [10], "Cuenta Corriente": [10] },
+            "CORPBANCA": { "Cuenta Ahorros": [10], "Cuenta Corriente": [9] },
+            "DAVIPLATA": { "Cuenta Ahorros": [10] },
+            "GNB": { "Cuenta Ahorros": [7, 8, 9, 10, 11, 12], "Cuenta Corriente": [7, 8, 9, 10, 11, 12] },
+            "GNB SUDAMERIS": { "Cuenta Ahorros": [7, 8, 9, 10, 11, 13], "Cuenta Corriente": [7, 8, 9, 10, 11, 13] },
+            "HSBC": { "Cuenta Ahorros": [12, 15], "Cuenta Corriente": [12, 15] },
+            "ITAU": { "Cuenta Ahorros": [9], "Cuenta Corriente": [9] },
+            "NEQUI": { "Cuenta Ahorros": [10] },
+            "SUDAMERIS": { "Cuenta Ahorros": [7, 8, 9, 10, 11, 13], "Cuenta Corriente": [7, 8, 9, 10, 11, 13] },
+            "Tarjeta Credito - Default": { "Tarjeta Credito": [16] },
+            "DINERS CLUB": { "Tarjeta Credito": [14] },
+            "AMERICAN EXPRESS": { "Tarjeta Credito": [16] },
+            "VISA": { "Tarjeta Credito": [16] },
+            "MASTER CARD": { "Tarjeta Credito": [16] }
+        };
+
+        /** Validador de cuenta/tarjeta - igual que base CRM (validateAccountNumber) */
+        function vdValidateAccountNumber() {
+            const canal = document.getElementById('vd-canal-descuento')?.value;
+            const entidad = document.getElementById('vd-entidad-bancaria')?.value;
+            const franquicia = document.getElementById('vd-franquicia-descuento')?.value;
+            const numEl = document.getElementById('vd-numero-cuenta');
+            const digitosEl = document.getElementById('vd-cuenta-digitos');
+            const numero = (numEl?.value || '').replace(/[\s-]/g, '');
+            const numeroLength = numero.length;
+
+            numEl?.classList.remove('border-red-500', 'border-green-500');
+            if (digitosEl) digitosEl.textContent = '';
+            digitosEl?.classList.remove('text-red-600', 'text-green-600', 'text-gray-500');
+
+            let expectedLengths = [];
+            let feedbackMessage = '';
+            let isValid = true;
+
+            if (canal === 'Tarjeta Credito') {
+                if (entidad && vdAccountLengthConfig[entidad] && vdAccountLengthConfig[entidad]['Tarjeta Credito']) {
+                    expectedLengths = vdAccountLengthConfig[entidad]['Tarjeta Credito'];
+                } else if (franquicia && vdAccountLengthConfig[franquicia] && vdAccountLengthConfig[franquicia]['Tarjeta Credito']) {
+                    expectedLengths = vdAccountLengthConfig[franquicia]['Tarjeta Credito'];
+                } else {
+                    expectedLengths = [16];
+                    if (!franquicia) {
+                        isValid = false;
+                        feedbackMessage = 'Por favor, seleccione la Franquicia de la tarjeta.';
+                    }
+                }
+            } else if (canal === 'Cuenta Ahorros' || canal === 'Cuenta Corriente') {
+                if (entidad && vdAccountLengthConfig[entidad] && vdAccountLengthConfig[entidad][canal]) {
+                    expectedLengths = vdAccountLengthConfig[entidad][canal];
+                } else {
+                    isValid = false;
+                    feedbackMessage = 'Seleccione la entidad bancaria y el tipo de cuenta.';
+                }
+            } else {
+                isValid = false;
+                feedbackMessage = 'Seleccione el Canal de Descuento.';
+            }
+
+            if (isValid && expectedLengths.length > 0) {
+                if (!expectedLengths.includes(numeroLength)) {
+                    isValid = false;
+                    feedbackMessage = expectedLengths.length === 1 ? `Debe tener ${expectedLengths[0]} dígitos.` : `Debe tener ${expectedLengths.join(' o ')} dígitos.`;
+                } else {
+                    feedbackMessage = 'Número de dígitos correcto.';
+                }
+            }
+
+            if (feedbackMessage && numEl && digitosEl) {
+                digitosEl.textContent = feedbackMessage + (numeroLength > 0 ? ` (Dígitos: ${numeroLength})` : '');
+                if (isValid) {
+                    numEl.classList.add('border-green-500');
+                    digitosEl.classList.add('text-green-600');
+                } else {
+                    numEl.classList.add('border-red-500');
+                    digitosEl.classList.add('text-red-600');
+                }
+            } else if (numeroLength > 0 && digitosEl) {
+                digitosEl.textContent = 'Dígitos: ' + numeroLength;
+                digitosEl.classList.add('text-gray-500');
+            }
+
+            return isValid;
+        }
+
+        /** Validador DESCUENTO DÉBITO - tiempo real (prima + cuenta) */
+        function vdValidarDescuento() {
+            const primaEl = document.getElementById('vd-valor-prima');
+            const prima = parseFloat(primaEl?.value) || 0;
+            const cuentaOk = vdValidateAccountNumber();
+            const primaOk = prima > 0;
+            if (primaEl?.value && prima <= 0) vdMostrarFeedbackCampo(primaEl, false, 'La prima debe ser mayor a 0.');
+            else if (primaEl && prima > 0) vdMostrarFeedbackCampo(primaEl, true, '');
+            return cuentaOk && primaOk;
+        }
+
+        function vdValidarEdad() {
+            const fechaEl = document.getElementById('vd-fecha-nacimiento');
+            const fecha = fechaEl?.value;
+            const disp = document.getElementById('vd-edad-display');
+            if (!fecha) {
+                vdMostrarFeedbackCampo(fechaEl, false, 'Ingrese la fecha de nacimiento.');
+                if (disp) disp.textContent = '--';
+                return false;
+            }
+            const edad = vdCalcularEdad(fecha);
+            if (edad === null) {
+                vdMostrarFeedbackCampo(fechaEl, false, 'Fecha inválida.');
+                if (disp) disp.textContent = 'Fecha inválida';
+                return false;
+            }
+            if (disp) disp.textContent = edad + ' años';
+            if (edad < 18) {
+                vdMostrarFeedbackCampo(fechaEl, false, 'NO ASEGURABLE: Menor de 18 años. La gestión debe suspenderse.');
+                disp?.classList.add('text-red-600');
+                return false;
+            }
+            if (edad > 79) {
+                vdMostrarFeedbackCampo(fechaEl, false, 'NO ASEGURABLE: Mayor de 79 años. La gestión será desistida.');
+                disp?.classList.add('text-red-600');
+                return false;
+            }
+            if (edad > 60 && vdGetProducto() === 'vida') {
+                vdMostrarFeedbackCampo(fechaEl, false, 'NO ASEGURABLE: Para Vida no puede ser mayor de 60 años. Ofrezca Seguro de Desempleo.');
+                disp?.classList.add('text-amber-600');
+                return false;
+            }
+            vdMostrarFeedbackCampo(fechaEl, true, '');
+            disp?.classList.remove('text-red-600', 'text-amber-600');
+            return true;
+        }
+
+        function vdResetForms() {
+            document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(el => { if (el.type !== 'radio' && el.type !== 'checkbox') el.value = ''; });
+            document.querySelectorAll('#modalLead-vd input[type="radio"], #modalLead-vd input[type="checkbox"]').forEach(el => el.checked = false);
+            document.querySelectorAll('#modalLead-vd [id$="-msg"]').forEach(el => { el.innerHTML = ''; el.classList.add('hidden'); });
+            document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(el => { el.classList.remove('border-red-500', 'border-green-500'); });
+            const edadDisp = document.getElementById('vd-edad-display');
+            if (edadDisp) edadDisp.textContent = '--';
+            const asegEl = document.getElementById('vd-asegurable');
+            if (asegEl) { asegEl.value = ''; asegEl.placeholder = 'Ingrese peso y estatura'; asegEl.className = 'w-full border rounded-lg px-3 py-2 font-semibold text-center'; }
+            const digitosEl = document.getElementById('vd-cuenta-digitos');
+            if (digitosEl) { digitosEl.textContent = ''; digitosEl.className = 'text-sm mt-1'; }
+            const franq = document.getElementById('vd-franquicia-descuento');
+            if (franq) franq.required = false;
+            ['vd-ben2-designacion','vd-ben3-designacion'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) { el.disabled = false; el.value = ''; }
+            });
+            document.getElementById('vd-ben2-container')?.classList.remove('opacity-50','pointer-events-none');
+            document.getElementById('vd-ben3-container')?.classList.remove('opacity-50','pointer-events-none');
+            document.getElementById('vd-ben-restante')?.classList.add('hidden');
+        }
+
+        function vdShowStep(step) {
+            vdCurrentStep = step;
+            document.querySelectorAll('.vd-step').forEach((el, i) => {
+                const n = i + 1;
+                el.classList.toggle('border-proyectiva-blue', n === step);
+                el.classList.toggle('text-proyectiva-blue', n === step);
+                el.classList.toggle('border-transparent', n !== step);
+                el.classList.toggle('text-gray-500', n !== step);
+                el.querySelector('span').className = 'w-8 h-8 rounded-full flex items-center justify-center text-sm ' + (n === step ? 'bg-proyectiva-blue text-white' : 'bg-gray-200 text-gray-600');
+            });
+            document.querySelectorAll('.vd-etapa').forEach(el => el.classList.add('hidden'));
+            const isVida = vdGetProducto() === 'vida';
+            let etapaId = 'vd-etapa-' + step;
+            if (step === 2) etapaId += isVida ? '-vida' : '-desempleo';
+            else if (step === 4) etapaId += isVida ? '-vida' : '-desempleo';
+            const etapa = document.getElementById(etapaId);
+            if (etapa) etapa.classList.remove('hidden');
+            document.getElementById('vd-btn-prev').classList.toggle('hidden', step === 1);
+            document.getElementById('vd-btn-next').classList.toggle('hidden', step === 5);
+            document.getElementById('vd-btn-guardar').classList.toggle('hidden', step !== 5);
+            if (step === 4 && !isVida) vdRenderCoberturas();
+        }
+
+        function vdPrevStep() {
+            if (vdCurrentStep > 1) vdShowStep(vdCurrentStep - 1);
+        }
+
+        function vdValidateStep(step) {
+            const isVida = vdGetProducto() === 'vida';
+            if (step === 1) {
+                const email = document.getElementById('vd-email-cliente').value?.trim();
+                const autoriza = document.querySelector('input[name="vd-autoriza-datos"]:checked')?.value;
+                if (!email) { Swal.fire('Validación', 'Ingrese el correo del cliente.', 'warning'); return false; }
+                if (!autoriza) { Swal.fire('Validación', 'Indique si el cliente autoriza o no.', 'warning'); return false; }
+                if (autoriza === 'no') { Swal.fire('Gestión suspendida', 'El cliente no autorizó. La gestión debe suspenderse.', 'info'); closeModalLead(); return false; }
+                const fechaNac = document.getElementById('vd-fecha-nacimiento').value;
+                const edadDisp = document.getElementById('vd-edad-display').textContent;
+                if (!fechaNac) { Swal.fire('Validación', 'Ingrese la fecha de nacimiento y haga clic en Validar Edad.', 'warning'); document.getElementById('vd-fecha-nacimiento').classList.add('border-red-500'); return false; }
+                const edad = vdCalcularEdad(fechaNac);
+                if (edad === null) { Swal.fire('Validación', 'Fecha de nacimiento inválida.', 'warning'); return false; }
+                if (edad < 18) { Swal.fire('No asegurable', 'El cliente es menor de 18 años. La gestión debe suspenderse.', 'error'); return false; }
+                if (edad > 79) { Swal.fire('No asegurable', 'El cliente es mayor de 79 años. La gestión será desistida.', 'warning'); closeModalLead(); return false; }
+                if (vdGetProducto() === 'vida' && edad > 60) { Swal.fire('No asegurable', 'Para Seguro de Vida el cliente no puede ser mayor de 60 años. Cambie a Desempleo.', 'warning'); return false; }
+                if (edadDisp === '--' || edadDisp === 'Digita fecha' || edadDisp === 'Fecha inválida') { Swal.fire('Validación', 'Haga clic en Validar Edad antes de continuar.', 'warning'); return false; }
+                const canon = parseFloat(document.getElementById('vd-canon').value) || 0;
+                const costo = parseFloat(document.getElementById('vd-costo-proteccion').value) || 0;
+                if (canon <= 0 || costo <= 0) { Swal.fire('Validación', 'Complete canon de arrendamiento y costo de protección (Cotizador).', 'warning'); return false; }
+            }
+            if (step === 2 && isVida) {
+                const p1 = document.querySelector('input[name="vd-p1-licito"]:checked')?.value;
+                const p2 = document.querySelector('input[name="vd-p2-penal"]:checked')?.value;
+                if (p1 === 'no') { Swal.fire('No asegurable', 'Las actividades no son lícitas. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                if (p2 === 'no') { Swal.fire('No asegurable', 'El cliente ha tenido proceso penal. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                const asegurable = document.getElementById('vd-asegurable')?.value || '';
+                if (asegurable === 'NO ASEGURABLE') { Swal.fire('No asegurable', 'El IMC indica que el cliente no es asegurable. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                const peso = parseFloat(document.getElementById('vd-peso').value);
+                const est = parseFloat(document.getElementById('vd-estatura').value);
+                const freq = document.getElementById('vd-frecuencia-deporte').value;
+                if (!peso || !est) { Swal.fire('Validación', 'Ingrese peso y estatura.', 'warning'); return false; }
+                if (!freq) { Swal.fire('Validación', 'Seleccione frecuencia de deportes.', 'warning'); return false; }
+                const medReq = ['vd-hipertension','vd-colesterol','vd-diabetes','vd-coronaria','vd-insuficiencia-renal','vd-cancer','vd-derrame','vd-psicologicas','vd-sida','vd-vih','vd-diagnostico'];
+                for (const n of medReq) { if (!document.querySelector(`input[name="${n}"]:checked`)) { Swal.fire('Validación', 'Responda todas las preguntas médicas.', 'warning'); return false; } }
+                if (document.querySelector('input[name="vd-sida"]:checked')?.value === 'si' || document.querySelector('input[name="vd-vih"]:checked')?.value === 'si') { Swal.fire('No asegurable', 'SIDA o VIH positivo. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                if (!document.getElementById('vd-autoriza-info-medica').checked) { Swal.fire('Validación', 'Debe autorizar el tratamiento de información médica.', 'warning'); return false; }
+            }
+            if (step === 2 && !isVida) {
+                if (!document.querySelector('input[name="vd-des-autoriza"]:checked')) { Swal.fire('Validación', 'Indique si autoriza datos personales.', 'warning'); return false; }
+                const vincula = document.querySelector('input[name="vd-tipo-vinculacion"]:checked')?.value;
+                if (!vincula) { Swal.fire('Validación', 'Seleccione tipo de vinculación.', 'warning'); return false; }
+                if (vincula === 'No asegurable' || vincula === 'No autoriza el tratamiento de datos') {
+                    Swal.fire('Gestión suspendida', 'Cliente no asegurable o no autoriza. La gestión debe suspenderse.', 'info');
+                    closeModalLead();
+                    return false;
+                }
+                if (vincula === 'Empleado' && !document.getElementById('vd-tipo-contrato').value) { Swal.fire('Validación', 'Seleccione el tipo de contrato.', 'warning'); return false; }
+                if (!document.querySelector('input[name="vd-autoriza-reaseg"]:checked')) { Swal.fire('Validación', 'Indique autorización reaseguradora.', 'warning'); return false; }
+                const ocupLicita = document.querySelector('input[name="vd-ocupacion-licita"]:checked')?.value;
+                if (!ocupLicita) { Swal.fire('Validación', 'Indique si la ocupación es lícita.', 'warning'); return false; }
+                if (ocupLicita === 'no') { Swal.fire('No asegurable', 'La ocupación no es lícita. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+            }
+            if (step === 3) {
+                const canal = document.getElementById('vd-canal-descuento').value;
+                const entidad = document.getElementById('vd-entidad-bancaria').value;
+                const num = document.getElementById('vd-numero-cuenta').value?.trim();
+                const prima = document.getElementById('vd-valor-prima').value;
+                if (!canal || !entidad || !num || !prima) { Swal.fire('Validación', 'Complete todos los campos de descuento.', 'warning'); return false; }
+                if (canal === 'Tarjeta Credito') {
+                    if (!document.getElementById('vd-franquicia-descuento')?.value) { Swal.fire('Validación', 'Seleccione la Franquicia de la tarjeta.', 'warning'); return false; }
+                    if (!document.getElementById('vd-fecha-venc-tc').value) { Swal.fire('Validación', 'Ingrese fecha de vencimiento de la tarjeta.', 'warning'); return false; }
+                }
+                if (!vdValidateAccountNumber()) { Swal.fire('Validación', 'El número de cuenta/tarjeta no cumple con la longitud requerida para la entidad seleccionada.', 'warning'); return false; }
+                if (!document.getElementById('vd-autoriza-debito').checked) { Swal.fire('Validación', 'Debe autorizar el descuento débito.', 'warning'); return false; }
+                if (!document.getElementById('vd-entiende-mora').checked) { Swal.fire('Validación', 'Debe confirmar que entiende la mora.', 'warning'); return false; }
+            }
+            if (step === 4 && isVida) {
+                const d1 = parseInt(document.getElementById('vd-ben1-designacion').value) || 0;
+                const d2 = parseInt(document.getElementById('vd-ben2-designacion').value) || 0;
+                const d3 = parseInt(document.getElementById('vd-ben3-designacion').value) || 0;
+                const sum = d1 + d2 + d3;
+                if (sum !== 100) { Swal.fire('Validación', 'La suma de designaciones de beneficiarios debe ser 100%.', 'warning'); return false; }
+                const n1 = document.getElementById('vd-ben1-nombre').value?.trim();
+                if (!n1) { Swal.fire('Validación', 'Ingrese al menos el beneficiario 1.', 'warning'); return false; }
+            }
+            if (step === 4 && !isVida) {
+                if (!document.querySelector('input[name="vd-confirma-coberturas"]:checked')) { Swal.fire('Validación', 'Confirme las coberturas.', 'warning'); return false; }
+                const conf = document.querySelector('input[name="vd-confirma-coberturas"]:checked').value;
+                if (conf === 'no') { Swal.fire('Gestión suspendida', 'El cliente no confirmó.', 'info'); return false; }
+            }
+            if (step === 5) {
+                if (!document.getElementById('vd-confirma-venta').checked) { Swal.fire('Validación', 'Debe confirmar que la venta se realizó correctamente.', 'warning'); return false; }
+            }
+            return true;
+        }
+
+        function vdNextStep() {
+            if (!vdValidateStep(vdCurrentStep)) return;
+            if (vdCurrentStep < 5) vdShowStep(vdCurrentStep + 1);
+        }
+
+        function vdRenderCoberturas() {
+            const tipo = document.querySelector('input[name="vd-tipo-vinculacion"]:checked')?.value || 'Independiente';
+            const contrato = document.getElementById('vd-tipo-contrato')?.value || '';
+            const cont = document.getElementById('vd-cobertura-contenido');
+            let html = '';
+            if (tipo === 'Independiente') {
+                html = '<ul class="list-disc list-inside space-y-2"><li>Incapacidad mínimo 15 días consecutivos: 1 canon, y por cada 30 días adicionales hasta llegar máximo a 4 cánones.</li><li>Hospitalización mínimo 7 días: 1 canon, y por cada 30 días adicionales hasta máximo 4 cánones.</li></ul>';
+            } else {
+                const textos = {
+                    'Termino Indefinido': 'Cuatro (4) cánones por despido sin justa causa. Adicional: 1 canon por incapacidad ≥15 días, hasta 4 cánones.',
+                    'Contrato Fijo': 'Cuatro (4) cánones por terminación anticipada o no renovación (antigüedad mínima 18 meses).',
+                    'Obra o Labor': 'Cuatro (4) cánones con soporte de indemnización ≥15 días.',
+                    'Libre Nombramiento': 'Cuatro (4) cánones por terminación anticipada.',
+                    'Provisionalidad': 'Cuatro (4) cánones por no renovación con antigüedad mínima 18 meses.'
+                };
+                html = '<ul class="list-disc list-inside space-y-2"><li>' + (textos[contrato] || textos['Termino Indefinido']) + '</li></ul>';
+            }
+            cont.innerHTML = html;
+        }
+
+        function guardarGestionVD() {
+            if (!vdValidateStep(5)) return;
+            if (!currentLeadVD) return;
+            const payload = {
+                lead: currentLeadVD,
+                producto: vdGetProducto(),
+                etapas: {
+                    guion: { email: document.getElementById('vd-email-cliente').value, autoriza: document.querySelector('input[name="vd-autoriza-datos"]:checked')?.value, fechaNacimiento: document.getElementById('vd-fecha-nacimiento').value, canon: document.getElementById('vd-canon').value, costoProteccion: document.getElementById('vd-costo-proteccion').value },
+                    descuento: { canal: document.getElementById('vd-canal-descuento').value, entidad: document.getElementById('vd-entidad-bancaria').value, numeroCuenta: document.getElementById('vd-numero-cuenta').value, valorPrima: document.getElementById('vd-valor-prima').value },
+                    final: { numPoliza: document.getElementById('vd-num-poliza').value, fechaVigencia: document.getElementById('vd-fecha-vigencia').value }
+                }
+            };
+            if (isAppsScript && typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); closeModalLead(); loadData(); } else showError('Error', res.message); }).withFailureHandler(err => showError('Error', err)).guardarGestionVD(JSON.stringify(payload));
+            } else {
+                if (!currentLeadVD.historiaGestiones) currentLeadVD.historiaGestiones = [];
+                const obsDetalle = 'Gestión completada (' + vdGetProducto() + '). Canon: $' + (payload.etapas?.descuento?.valorPrima || '-') + ', Póliza: ' + (payload.etapas?.final?.numPoliza || 'pendiente') + '.';
+                currentLeadVD.historiaGestiones.push({ fecha: new Date().toISOString(), observacion: obsDetalle, etapas: payload.etapas });
+                Swal.fire('Éxito', 'Gestión guardada correctamente (modo demo).', 'success');
+                closeModalLead();
+                renderVDTab();
+            }
+        }
+
+        function closeModalLead() {
+            document.getElementById('modalLeadGestion').classList.add('hidden');
+            document.getElementById('modalLeadGestion').classList.remove('flex');
+            currentLeadReno = null;
+            currentLeadVD = null;
+        }
+
+        function guardarGestionReno(e) {
+            e.preventDefault();
+            if (!currentLeadReno) return;
+            const estado = document.getElementById('inp-reno-estado').value;
+            const obs = document.getElementById('inp-reno-obs').value?.trim();
+            if (!obs) { Swal.fire('Aviso', 'Ingrese la observación.', 'warning'); return; }
+            const payload = { lead: currentLeadReno, estadoGestion: estado, observacion: obs };
+            if (isAppsScript && typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run.withSuccessHandler(r => { const res = JSON.parse(r); if (res.status === 'success') { Swal.fire('Éxito', res.message, 'success'); closeModalLead(); loadData(); } else showError('Error', res.message); }).withFailureHandler(err => showError('Error', err)).guardarGestionRenovacion(JSON.stringify(payload));
+            } else {
+                if (!currentLeadReno.historialGestiones) currentLeadReno.historialGestiones = [];
+                currentLeadReno.historialGestiones.push({ fecha: new Date().toISOString(), observacion: obs, estadoGestion: estado });
+                currentLeadReno.estadoGestion = estado;
+                Swal.fire('Preview', 'Gestión guardada (modo demo).', 'success');
+                closeModalLead();
+                renderRenovacionesTab();
+            }
+        }
+
+        // --- CARGA DE DATOS ---
+        function loadData() {
+            const syncIcon = document.getElementById('sync-icon');
+            syncIcon.classList.add('animate-spin');
+
+            if (isAppsScript) {
+                google.script.run.withSuccessHandler(function(res) {
+                    var json = typeof res === 'string' ? JSON.parse(res) : res;
+                    if (json.status === 'error') {
+                        showError('Error', json.message || 'Error al cargar datos');
+                        syncIcon.classList.remove('animate-spin');
+                        return;
+                    }
+                    userInfo = json.userInfo || {};
+                    var rawData = json.data || [];
+                    var roleKey = (userInfo.role || '').trim();
+                    if (Array.isArray(rawData)) {
+                        var r = roleKey.toLowerCase();
+                        if (r.indexOf('renov') >= 0) { renovacionesData = rawData; appData = []; vdData = []; }
+                        else if (r.indexOf('vida') >= 0 || r.indexOf('desempleo') >= 0 || r === 'coordinadora' || r === 'adminvidadesempleo') { vdData = rawData; appData = []; renovacionesData = []; }
+                        else { appData = rawData; renovacionesData = []; vdData = []; }
+                    } else {
+                        appData = (rawData.adminPQR || []).concat();
+                        renovacionesData = rawData.adminRenovations || [];
+                        vdData = rawData.adminVD || [];
+                        if (userInfo.role === 'superAdmin') appData = (rawData.adminPQR || []).concat(rawData.adminVD || []).filter(function(x){ return x && x.id; });
+                    }
+                    listUsuarios = json.listUsuarios || [];
+                    dashboardMetrics = json.metrics || null;
+                    userIsAdmin = ['superAdmin','adminPQR','adminRenovations','adminVidaDesempleo'].indexOf(userInfo.role || '') >= 0;
+                    var roleKey = (userInfo.role || '').trim();
+                    var hasReno = ['Renovations','adminRenovations','superAdmin'].indexOf(roleKey) >= 0;
+                    var hasVD = ['Seguro de Vida','Seguro de Desempleo','adminVidaDesempleo','Coordinadora','superAdmin'].indexOf(roleKey) >= 0;
+                    var navAdmin = document.getElementById('nav-admin');
+                    var navReno = document.getElementById('nav-renovaciones');
+                    var navVD = document.getElementById('nav-vd');
+                    if (navAdmin) navAdmin.style.display = userIsAdmin ? '' : 'none';
+                    if (navReno) navReno.style.display = hasReno ? '' : 'none';
+                    if (navVD) navVD.style.display = hasVD ? '' : 'none';
+                    var un = document.getElementById('user-name');
+                    var ue = document.getElementById('user-email');
+                    if (un) un.textContent = userInfo.nombre || 'Asesor';
+                    if (ue) ue.textContent = userInfo.correo || '';
+                    processData();
+                    populateAsesoresSelect();
+                    if (renovacionesData.length) renderRenovacionesTab();
+                    if (vdData.length) renderVDTab();
+                    if (document.getElementById('view-admin') && !document.getElementById('view-admin').classList.contains('hidden')) renderAdminTab();
+                    syncIcon.classList.remove('animate-spin');
+                }).withFailureHandler(function(e) {
+                    showError("Error de conexión", e);
+                    syncIcon.classList.remove('animate-spin');
+                }).getDataUser();
+            } else {
+                userInfo = { role: 'superAdmin', nombre: 'Asesor Demo', correo: 'asesor@proyectiva.com' };
+                userIsAdmin = true;
+                listUsuarios = [{ nombre: 'María Gaitán', correo: 'maria.gaitan@proyectivaseguros.com', novedad: '' }, { nombre: 'Carlos Zamora', correo: 'carlos.zamora@proyectivaseguros.com', novedad: '' }];
+                const mockRenovaciones = [
+                    { leadData: { poliza: 'POL-2025-001', asegurado: 'Juan Pérez García', vencimiento: '2026-03-15', canon: '$850.000' }, nombreAgente: 'María Gaitán', estadoGestion: 'Pendiente Renovacion', historialGestiones: [] },
+                    { leadData: { poliza: 'POL-2025-002', asegurado: 'Ana Martínez López', vencimiento: '2026-02-28', canon: '$1.200.000' }, nombreAgente: 'Carlos Zamora', estadoGestion: 'Poliza Renovada', historialGestiones: [{ fecha: '2026-02-20', observacion: 'Cliente renovó vía app.' }] },
+                    { leadData: { poliza: 'POL-2025-003', asegurado: 'Luis Rodríguez', vencimiento: '2026-01-10', canon: '$650.000' }, nombreAgente: 'María Gaitán', estadoGestion: 'VENCIDO', historialGestiones: [] }
+                ];
+                const mockVD = [
+                    { nombre: 'Pedro Sánchez', numeroSolicitud: 'SOL-VD-001', asesorAsignado: 'maria.gaitan@proyectivaseguros.com', productoAsignado: 'Seguro de Vida', canon: 850000, costoProteccion: 45000, fechaNacimiento: '1985-01-15', datosVida: { Estado: 'Cotizado', Prima: '$45.000/mes' }, datosDesempleo: {}, historiaGestiones: [
+                        { fecha: '2026-02-20T09:20:00', observacion: 'Contacto inicial. Cliente autorizó datos personales.' },
+                        { fecha: '2026-02-21T10:31:00', observacion: 'Declaración de asegurabilidad completada. Pendiente información médica.' },
+                        { fecha: '2026-02-22T10:06:00', observacion: 'Información médica validada. Enviado a emisión.' }
+                    ] },
+                    { nombre: 'Laura Gómez', numeroSolicitud: 'SOL-VD-002', asesorAsignado: 'carlos.zamora@proyectivaseguros.com', productoAsignado: 'Seguro de Desempleo', canon: 1200000, costoProteccion: 52000, fechaNacimiento: '1990-06-20', estadoGestion: 'Venta', datosVida: {}, datosDesempleo: { Estado: 'Emitido', Cobertura: '6 meses' }, historiaGestiones: [
+                        { fecha: '2026-02-22T14:00:00', observacion: 'Autorizaciones completadas. Tipo vinculación: Empleado.' },
+                        { fecha: '2026-02-22T15:30:00', observacion: 'Póliza emitida. Número: POL-DES-2026-002.' }
+                    ] }
+                ];
+                setTimeout(function() {
+                    appData = [...mockData];
+                    renovacionesData = mockRenovaciones;
+                    vdData = mockVD;
+                    dashboardMetrics = { pqr: { total: 2, proceso: 1, resueltas: 0, vencidas: 0, porTipo: { QUEJA: 1, PETICION: 1 } }, renovaciones: { total: 3, porVencer: 1, renovadas: 1, vencidas: 1 }, vd: { total: 2, enGestion: 2, ventas: 1, desistidos: 0 } };
+                    document.getElementById('nav-admin').style.display = '';
+                    document.getElementById('nav-renovaciones').style.display = '';
+                    document.getElementById('nav-vd').style.display = '';
+                    document.getElementById('user-name').textContent = userInfo.nombre;
+                    document.getElementById('user-email').textContent = userInfo.correo;
+                    processData();
+                    populateAsesoresSelect();
+                    renderRenovacionesTab();
+                    renderVDTab();
+                    syncIcon.classList.remove('animate-spin');
+                }, 800);
+            }
+        }
+
+        function populateAsesoresSelect() {
+            const sel = document.getElementById('inp-asesor');
+            if (!sel) return;
+            sel.innerHTML = '<option value="Sin Asignar">Sin Asignar</option>';
+            listUsuarios.forEach(u => sel.innerHTML += `<option value="${u.correo}">${u.nombre} (${u.correo})</option>`);
+        }
+
+        // --- PROCESAMIENTO Y RENDERIZADO ---
+        function processData() {
+            renderDashboard();
+            pqrPage = 1;
+            recentPage = 1;
+            const filtered = getFilteredData();
+            renderTable(filtered);
+            renderRecentTable(filtered);
+            drawChart(filtered);
+        }
+
+        function getRoleDashboardSections(role) {
+            var r = (role || '').toString();
+            if (r === 'superAdmin') return ['pqr', 'renovaciones', 'vd'];
+            if (r === 'adminPQR' || r === 'pqr') return ['pqr'];
+            if (r === 'adminRenovations' || r === 'Renovations') return ['renovaciones'];
+            if (r === 'adminVidaDesempleo' || r === 'Coordinadora' || r === 'Seguro de Vida' || r === 'Seguro de Desempleo') return ['vd'];
+            return ['pqr'];
+        }
+
+        function renderDashboard() {
+            var role = userInfo.role || '';
+            var settings = getDashboardSettings();
+            var sections = getRoleDashboardSections(role);
+            var visibleSections = settings.visibleSections || {};
+            sections.forEach(function(s) { if (visibleSections[s] === undefined) visibleSections[s] = true; });
+
+            document.getElementById('dashboard-role-label').textContent = ROLE_LABELS[role] || role || 'Usuario';
+
+            var container = document.getElementById('dashboard-kpis');
+            if (!container) return;
+            container.innerHTML = '';
+
+            if (selectedOperation) {
+                var btnAll = document.createElement('button');
+                btnAll.className = 'col-span-full flex items-center gap-2 text-sm text-proyectiva-orange font-medium hover:underline mb-2';
+                btnAll.innerHTML = '<i class="fas fa-th-large"></i> Ver todas las operaciones';
+                btnAll.onclick = function() { setKpiFilter(null); };
+                container.appendChild(btnAll);
+            }
+
+            var cardClass = 'bg-white rounded-lg shadow-sm p-3 border-l-4 hover:shadow-md transition-all cursor-pointer min-w-0';
+
+            sections.forEach(function(sectionKey) {
+                if (visibleSections[sectionKey] === false) return;
+                if (selectedOperation && selectedOperation !== sectionKey) return;
+                var kpis = DASHBOARD_KPI_REGISTRY[sectionKey];
+                if (!kpis) return;
+                var metrics = (dashboardMetrics && dashboardMetrics[sectionKey]) || {};
+                if (role === 'superAdmin' && dashboardMetrics && dashboardMetrics[sectionKey]) metrics = dashboardMetrics[sectionKey];
+                else if (!metrics.total && sectionKey === 'pqr' && appData.length) {
+                    metrics = { total: appData.length, proceso: appData.filter(function(p){ return p.estado === 'En Proceso'; }).length, resueltas: appData.filter(function(p){ return p.estado === 'Resuelto' || p.estado === 'Cerrado'; }).length, vencidas: appData.filter(function(p){ return p.estado !== 'Resuelto' && p.estado !== 'Cerrado' && (Date.now() - new Date(p.fechaCreacion).getTime()) > 259200000; }).length };
+                }
+                else if (!metrics.total && sectionKey === 'renovaciones' && renovacionesData.length) {
+                    metrics = { total: renovacionesData.length, porVencer: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'Pendiente Renovacion'; }).length, renovadas: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'Poliza Renovada'; }).length, vencidas: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'VENCIDO'; }).length };
+                }
+                else if (!metrics.total && sectionKey === 'vd' && vdData.length) {
+                    metrics = { total: vdData.length, enGestion: vdData.length, ventas: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('venta') >= 0; }).length, desistidos: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('desist') >= 0; }).length };
+                }
+
+                var sectionLabel = SECTION_LABELS[sectionKey] || sectionKey;
+                var headerDiv = document.createElement('div');
+                headerDiv.className = 'col-span-full flex items-center gap-2 mt-4 first:mt-0';
+                headerDiv.innerHTML = '<h3 class="text-base font-bold text-gray-700 border-l-4 border-proyectiva-orange pl-3">' + sectionLabel + '</h3>';
+                container.appendChild(headerDiv);
+
+                kpis.forEach(function(kpi) {
+                    var val = metrics[kpi.key] || 0;
+                    var colorMap = { blue: 'border-blue-500 bg-blue-50 text-blue-500', yellow: 'border-yellow-500 bg-yellow-50 text-yellow-600', green: 'border-green-500 bg-green-50 text-green-500', red: 'border-red-500 bg-red-50 text-red-500', amber: 'border-amber-500 bg-amber-50 text-amber-600', gray: 'border-gray-400 bg-gray-50 text-gray-600' };
+                    var cls = colorMap[kpi.color] || colorMap.blue;
+                    var filterKey = (sectionKey === 'pqr' && (kpi.filterKey === 'proceso' || kpi.filterKey === 'resueltas' || kpi.filterKey === 'vencidas')) ? kpi.filterKey : (kpi.filterKey || 'section-' + sectionKey);
+                    var isActive = selectedOperation === sectionKey && (sectionKey !== 'pqr' || !filterKPI || kpi.filterKey === filterKPI);
+                    var div = document.createElement('div');
+                    div.className = cardClass + ' border-' + (kpi.color === 'amber' ? 'amber' : kpi.color) + '-500' + (isActive ? ' ring-2 ring-proyectiva-orange' : '');
+                    div.setAttribute('onclick', 'setKpiFilter("' + filterKey + '")');
+                    div.innerHTML = '<div class="flex justify-between items-start gap-2"><div class="min-w-0 flex-1"><p class="text-xs text-gray-500 font-medium truncate">' + kpi.label + '</p><h3 class="text-xl font-bold text-gray-800 mt-0.5">' + val + '</h3></div><div class="p-1.5 rounded ' + (cls.split(' ')[1] || 'bg-blue-50') + ' ' + (cls.split(' ')[2] || 'text-blue-500') + ' shrink-0"><i class="fas ' + kpi.icon + ' text-sm"></i></div></div>';
+                    container.appendChild(div);
+                });
+            });
+
+            renderDashboardCharts(role, settings, sections, visibleSections);
+            updateDashboardRecentSection(role);
+        }
+
+        function renderDashboardCharts(role, settings, sections, visibleSections) {
+            var container = document.getElementById('dashboard-charts');
+            if (!container) return;
+            container.innerHTML = '';
+            var chartType = settings.chartType || 'doughnut';
+            var showPQR = !selectedOperation || selectedOperation === 'pqr';
+            var showReno = !selectedOperation || selectedOperation === 'renovaciones';
+            var showVD = !selectedOperation || selectedOperation === 'vd';
+
+            if (showPQR && (role === 'superAdmin' || role === 'adminPQR' || role === 'pqr') && (visibleSections.pqr !== false) && (appData.length || (dashboardMetrics && dashboardMetrics.pqr))) {
+                var chartDiv = document.createElement('div');
+                chartDiv.className = 'bg-white rounded-xl shadow-sm p-6';
+                chartDiv.innerHTML = '<h3 class="text-lg font-semibold text-gray-700 mb-4">PQRs por Tipo</h3><div class="relative h-64 w-full"><canvas id="typeChart"></canvas></div>';
+                container.appendChild(chartDiv);
+                setTimeout(function() { drawChart(getFilteredData()); }, 100);
+            }
+            if (showReno && (role === 'superAdmin' || role === 'adminRenovations' || role === 'Renovations') && (visibleSections.renovaciones !== false) && (renovacionesData.length || (dashboardMetrics && dashboardMetrics.renovaciones))) {
+                var m = dashboardMetrics && dashboardMetrics.renovaciones ? dashboardMetrics.renovaciones : { total: renovacionesData.length, porVencer: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'Pendiente Renovacion'; }).length, renovadas: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'Poliza Renovada'; }).length, vencidas: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'VENCIDO'; }).length };
+                var chartDiv2 = document.createElement('div');
+                chartDiv2.className = 'bg-white rounded-xl shadow-sm p-6';
+                chartDiv2.innerHTML = '<h3 class="text-lg font-semibold text-gray-700 mb-4">Renovaciones por Estado</h3><div class="relative h-64 w-full"><canvas id="renoChart"></canvas></div>';
+                container.appendChild(chartDiv2);
+                setTimeout(function() { drawRenoChart(m, chartType); }, 150);
+            }
+            if (showVD && (role === 'superAdmin' || role === 'adminVidaDesempleo' || role === 'Coordinadora' || role === 'Seguro de Vida' || role === 'Seguro de Desempleo') && (visibleSections.vd !== false) && (vdData.length || (dashboardMetrics && dashboardMetrics.vd))) {
+                var mvd = dashboardMetrics && dashboardMetrics.vd ? dashboardMetrics.vd : { total: vdData.length, enGestion: vdData.length, ventas: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('venta') >= 0; }).length, desistidos: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('desist') >= 0; }).length };
+                var chartDiv3 = document.createElement('div');
+                chartDiv3.className = 'bg-white rounded-xl shadow-sm p-6';
+                chartDiv3.innerHTML = '<h3 class="text-lg font-semibold text-gray-700 mb-4">Vida y Desempleo</h3><div class="relative h-64 w-full"><canvas id="vdChart"></canvas></div>';
+                container.appendChild(chartDiv3);
+                setTimeout(function() { drawVDChart(mvd, chartType); }, 200);
+            }
+        }
+
+        function drawRenoChart(metrics, type) {
+            if (chartInstanceReno) { chartInstanceReno.destroy(); chartInstanceReno = null; }
+            var ctx = document.getElementById('renoChart');
+            if (!ctx) return;
+            chartInstanceReno = new Chart(ctx.getContext('2d'), {
+                type: type || 'doughnut',
+                data: { labels: ['Por Vencer', 'Renovadas', 'Vencidas'], datasets: [{ data: [metrics.porVencer || 0, metrics.renovadas || 0, metrics.vencidas || 0], backgroundColor: ['#F59E0B', '#10B981', '#EF4444'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: type === 'doughnut' ? '70%' : 0, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        function drawVDChart(metrics, type) {
+            if (chartInstanceVD) { chartInstanceVD.destroy(); chartInstanceVD = null; }
+            var ctx = document.getElementById('vdChart');
+            if (!ctx) return;
+            chartInstanceVD = new Chart(ctx.getContext('2d'), {
+                type: type || 'doughnut',
+                data: { labels: ['En Gestión', 'Ventas', 'Desistidos'], datasets: [{ data: [metrics.enGestion || 0, metrics.ventas || 0, metrics.desistidos || 0], backgroundColor: ['#3B82F6', '#10B981', '#6B7280'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: type === 'doughnut' ? '70%' : 0, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        function buildActivityLog() {
+            var logs = [];
+            (appData || []).forEach(function(p) {
+                if (!p) return;
+                var ref = p.id || 'N/A';
+                var hist = p.historial || [];
+                if (Array.isArray(hist) && hist.length) {
+                    hist.forEach(function(h) {
+                        var fecha = h.fecha || h.fechaCreacion || h.timestamp || '';
+                        if (!fecha) return;
+                        logs.push({
+                            fecha: fecha,
+                            tipo: 'PQR',
+                            desc: (h.accion || h.observacion || h.descripcion || 'Cambio de estado') + (h.estadoAnterior && h.estadoNuevo ? ' (' + h.estadoAnterior + ' → ' + h.estadoNuevo + ')' : ''),
+                            ref: ref,
+                            usuario: h.usuario || ''
+                        });
+                    });
+                } else if (p.fechaCreacion) {
+                    logs.push({ fecha: p.fechaCreacion, tipo: 'PQR', desc: 'Nuevo registro creado', ref: ref, usuario: '' });
+                }
+            });
+            (renovacionesData || []).forEach(function(r) {
+                var hg = r.historialGestiones || r.historial || [];
+                var ref = (r.leadData && r.leadData.poliza) || r.poliza || 'N/A';
+                if (Array.isArray(hg) && hg.length) {
+                    hg.forEach(function(h) {
+                        var fecha = h.fecha || h.fechaCreacion || h.timestamp || '';
+                        if (!fecha) return;
+                        logs.push({
+                            fecha: fecha,
+                            tipo: 'Renovación',
+                            desc: h.observacion || (h.estadoGestion ? 'Estado: ' + h.estadoGestion : 'Actualización'),
+                            ref: ref,
+                            usuario: h.usuario || ''
+                        });
+                    });
+                } else if (r.fechaIngreso || r.fechaCreacion) {
+                    logs.push({ fecha: r.fechaIngreso || r.fechaCreacion, tipo: 'Renovación', desc: 'Póliza ingresada', ref: ref, usuario: '' });
+                }
+            });
+            (vdData || []).forEach(function(v) {
+                var hg = v.historiaGestiones || v.historialGestiones || v.historial || [];
+                var ref = v.numeroSolicitud || v.poliza || v.id || 'N/A';
+                if (Array.isArray(hg) && hg.length) {
+                    hg.forEach(function(h) {
+                        var fecha = h.fecha || h.fechaCreacion || h.timestamp || '';
+                        if (!fecha) return;
+                        logs.push({
+                            fecha: fecha,
+                            tipo: 'Vida y Desempleo',
+                            desc: h.observacion || (h.estadoGestion ? 'Estado: ' + h.estadoGestion : 'Actualización'),
+                            ref: ref,
+                            usuario: h.usuario || ''
+                        });
+                    });
+                } else if (v.fechaCreacion || v.fechaIngreso) {
+                    logs.push({ fecha: v.fechaCreacion || v.fechaIngreso, tipo: 'Vida y Desempleo', desc: 'Lead ingresado', ref: ref, usuario: '' });
+                }
+            });
+            logs.sort(function(a, b) { return new Date(b.fecha) - new Date(a.fecha); });
+            return logs.slice(0, 15);
+        }
+
+        function updateDashboardRecentSection(role) {
+            var title = document.getElementById('dashboard-recent-title');
+            var tbody = document.getElementById('recent-table-body');
+            if (!title || !tbody) return;
+            var thead = tbody.closest('table')?.querySelector('thead tr');
+            if (thead) thead.innerHTML = '<th class="px-4 py-3 font-semibold text-left">Fecha</th><th class="px-4 py-3 font-semibold text-left">Operación</th><th class="px-4 py-3 font-semibold text-left">Descripción</th><th class="px-4 py-3 font-semibold text-left">Referencia</th>';
+            renderActivityLog(tbody);
+        }
+
+        function renderActivityLog(tbody) {
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            var logs = buildActivityLog();
+            if (logs.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-gray-500">No hay registros de cambios recientes.</td></tr>';
+                return;
+            }
+            var tipoBadge = function(t) {
+                var c = { 'PQR': 'bg-blue-50 text-blue-600 border-blue-200', 'Renovación': 'bg-amber-50 text-amber-600 border-amber-200', 'Vida y Desempleo': 'bg-green-50 text-green-600 border-green-200' };
+                return '<span class="px-2 py-0.5 text-xs font-medium rounded border ' + (c[t] || 'bg-gray-50 text-gray-600') + '">' + t + '</span>';
+            };
+            logs.forEach(function(l) {
+                var tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-50 hover:bg-gray-50/50';
+                var desc = (l.desc || '-').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                tr.innerHTML = '<td class="py-2.5 px-4 text-xs text-gray-600 whitespace-nowrap">' + formatDate(l.fecha) + '</td><td class="py-2.5 px-4">' + tipoBadge(l.tipo) + '</td><td class="py-2.5 px-4 text-gray-700 max-w-[220px] truncate" title="' + desc + '">' + (l.desc || '-') + '</td><td class="py-2.5 px-4 text-xs font-medium text-proyectiva-blue">' + (l.ref || '-') + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderDashboardRecentRenovaciones(tbody) {
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            var data = (renovacionesData || []).slice(0, 5);
+            var thead = tbody.closest('table')?.querySelector('thead tr');
+            if (thead) thead.innerHTML = '<th class="px-4 py-3 font-semibold text-left">Póliza</th><th class="px-4 py-3 font-semibold text-left">Asegurado</th><th class="px-4 py-3 font-semibold text-left">Agente</th><th class="px-4 py-3 font-semibold text-left">Estado</th>';
+            if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-gray-500">No hay renovaciones.</td></tr>'; return; }
+            data.forEach(function(r) {
+                var ld = r.leadData || r;
+                var tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-50';
+                tr.innerHTML = '<td class="py-3 text-xs font-bold text-proyectiva-blue">' + (ld.poliza || r.poliza || 'N/A') + '</td><td class="py-3 text-sm">' + (ld.asegurado || r.asegurado || 'N/A') + '</td><td class="py-3 text-sm text-gray-600">' + (r.nombreAgente || r.agente || 'N/A') + '</td><td class="py-3">' + getRenoStatusBadge(r.estadoGestion || r.estado || '') + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderDashboardRecentVD(tbody) {
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            var data = (vdData || []).slice(0, 5);
+            var thead = tbody.closest('table')?.querySelector('thead tr');
+            if (thead) thead.innerHTML = '<th class="px-4 py-3 font-semibold text-left">Solicitud</th><th class="px-4 py-3 font-semibold text-left">Nombre</th><th class="px-4 py-3 font-semibold text-left">Producto</th><th class="px-4 py-3 font-semibold text-left">Estado</th>';
+            if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="4" class="py-8 text-center text-gray-500">No hay leads.</td></tr>'; return; }
+            data.forEach(function(v) {
+                var tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-50';
+                tr.innerHTML = '<td class="py-3 text-xs font-bold text-proyectiva-blue">' + (v.numeroSolicitud || v.poliza || 'N/A') + '</td><td class="py-3 text-sm">' + (v.nombre || 'N/A') + '</td><td class="py-3 text-sm">' + (v.productoAsignado || v.producto || 'N/A') + '</td><td class="py-3">' + getVDStatusBadge(v.estadoGestion || v.estado || '') + '</td>';
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openDashboardSettings() {
+            var modal = document.getElementById('modalDashboardSettings');
+            if (!modal) return;
+            var settings = getDashboardSettings();
+            var role = userInfo.role || '';
+            var sections = getRoleDashboardSections(role);
+            var visibleSections = settings.visibleSections || {};
+            sections.forEach(function(s) { if (visibleSections[s] === undefined) visibleSections[s] = true; });
+
+            var sectionLabels = { pqr: 'PQRs', renovaciones: 'Renovaciones', vd: 'Vida y Desempleo' };
+            var toggles = document.getElementById('dashboard-settings-toggles');
+            if (toggles) {
+                toggles.innerHTML = sections.map(function(s) {
+                    var checked = visibleSections[s] !== false ? 'checked' : '';
+                    return '<label class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"><input type="checkbox" class="rounded text-proyectiva-orange focus:ring-proyectiva-orange" data-section="' + s + '" ' + checked + '><span>' + (sectionLabels[s] || s) + '</span></label>';
+                }).join('');
+            }
+            var chartSel = document.getElementById('dashboard-chart-type');
+            if (chartSel) chartSel.value = settings.chartType || 'doughnut';
+            var densitySel = document.getElementById('dashboard-density');
+            if (densitySel) densitySel.value = settings.density || 'normal';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeDashboardSettings() {
+            var modal = document.getElementById('modalDashboardSettings');
+            if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+        }
+
+        function saveDashboardSettings() {
+            var visibleSections = {};
+            document.querySelectorAll('#dashboard-settings-toggles input[data-section]').forEach(function(cb) {
+                visibleSections[cb.getAttribute('data-section')] = cb.checked;
+            });
+            var settings = {
+                chartType: document.getElementById('dashboard-chart-type')?.value || 'doughnut',
+                density: document.getElementById('dashboard-density')?.value || 'normal',
+                visibleSections: visibleSections
+            };
+            setDashboardSettings(settings);
+            closeDashboardSettings();
+            renderDashboard();
+        }
+
+        function renderKPIs() {
+            renderDashboard();
+        }
+
+        // Utilidad para Badges
+        function getStatusBadge(estado) {
+            const styles = {
+                'Pendiente': 'bg-red-50 text-red-600 border-red-200',
+                'En Proceso': 'bg-yellow-50 text-yellow-600 border-yellow-200',
+                'Resuelto': 'bg-green-50 text-green-600 border-green-200',
+                'Cerrado': 'bg-gray-100 text-gray-600 border-gray-200'
+            };
+            const style = styles[estado] || styles['Pendiente'];
+            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${estado}</span>`;
+        }
+        
+        function getTypeBadge(tipo) {
+            const color = tipo === 'QUEJA' ? 'red' : tipo === 'RECLAMO' ? 'orange' : 'blue';
+            return `<span class="px-2 py-1 text-xs font-bold rounded bg-${color}-100 text-${color}-700">${tipo}</span>`;
+        }
+
+        function formatDate(isoString) {
+            if(!isoString) return 'N/A';
+            const d = new Date(isoString);
+            return d.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+        }
+
+        const PAGE_SIZE = 20;
+        let pqrPage = 1, renoPage = 1, vdPage = 1, recentPage = 1;
+        let adminSinAsignarPage = 1, adminAsignadasPage = 1, adminNovedadesPage = 1;
+
+        function renderPagination(containerId, currentPage, totalItems, onPageChange) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            if (totalItems === 0) {
+                el.innerHTML = '<span class="text-gray-600">No hay registros</span>';
+                return;
+            }
+            const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+            const start = (currentPage - 1) * PAGE_SIZE + 1;
+            const end = Math.min(currentPage * PAGE_SIZE, totalItems);
+            el.innerHTML = totalItems <= PAGE_SIZE ? `
+                <span class="text-gray-600">Mostrando ${totalItems} de ${totalItems} registros</span>
+            ` : `
+                <span class="text-gray-600">Mostrando ${start}-${end} de ${totalItems} registros</span>
+                <div class="flex gap-2 items-center">
+                    <button onclick="${onPageChange}(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} class="px-3 py-1 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100">Anterior</button>
+                    <span class="text-sm text-gray-700">Pág. ${currentPage} de ${totalPages}</span>
+                    <button onclick="${onPageChange}(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} class="px-3 py-1 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100">Siguiente</button>
+                </div>
+            `;
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('pqr-table-body');
+            tbody.innerHTML = '';
+            const total = data.length;
+            const paginated = data.slice((pqrPage - 1) * PAGE_SIZE, pqrPage * PAGE_SIZE);
+            renderPagination('pqr-pagination', pqrPage, total, 'setPqrPage');
+
+            paginated.forEach(pqr => {
+                const info = pqr.informacion;
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-gray-50 transition-colors border-b border-gray-50';
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="font-bold text-proyectiva-blue">${pqr.id}</div>
+                        <div class="text-xs text-gray-500">${formatDate(pqr.fechaCreacion)}</div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="font-semibold text-gray-800">${info.solicitante?.nombreCompleto || 'Sin nombre'}</div>
+                        <div class="text-xs text-gray-500">${info.solicitante?.email || ''}</div>
+                    </td>
+                    <td class="px-6 py-4 min-w-[180px] max-w-[320px]">
+                        <div class="flex gap-2 mb-1">${getTypeBadge(info.tramite?.tipoSolicitud)}</div>
+                        <div class="text-sm text-gray-700 break-words" title="${(info.tramite?.asunto || '').replace(/"/g, '&quot;')}">${info.tramite?.asunto || ''}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        ${getStatusBadge(pqr.estado)}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                        <button onclick='openModal(${JSON.stringify(pqr).replace(/'/g, "&#39;")})' class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-transform transform hover:scale-105 shadow-sm">
+                            Gestionar
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            
+            if(data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500">No se encontraron PQRs.</td></tr>`;
+            }
+        }
+        function setPqrPage(p) {
+            const filtered = getFilteredData();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { pqrPage = p; renderTable(filtered); }
+        }
+
+        function renderRecentTable(data) {
+            const tbody = document.getElementById('recent-table-body');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            const total = data.length;
+            const paginated = data.slice((recentPage - 1) * PAGE_SIZE, recentPage * PAGE_SIZE);
+            renderPagination('recent-pagination', recentPage, total, 'setRecentPage');
+            paginated.forEach(pqr => {
+                if (!pqr) return;
+                const info = pqr.informacion || {};
+                const sol = info.solicitante || {};
+                const tram = info.tramite || {};
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-gray-50';
+                tr.innerHTML = `
+                    <td class="py-3 text-xs font-bold text-gray-700">${pqr.id || 'N/A'}</td>
+                    <td class="py-3 text-sm truncate max-w-[150px]">${sol.nombreCompleto || 'Sin nombre'}</td>
+                    <td class="py-3">${getTypeBadge(tram.tipoSolicitud)}</td>
+                    <td class="py-3">${getStatusBadge(pqr.estado)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        function setRecentPage(p) {
+            const filtered = getFilteredData();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { recentPage = p; renderRecentTable(filtered); }
+        }
+
+        function filterTable() {
+            pqrPage = 1;
+            recentPage = 1;
+            const filtered = getFilteredData();
+            renderTable(filtered);
+            renderRecentTable(filtered);
+            drawChart(filtered);
+        }
+
+        function drawChart(data) {
+            const canvas = document.getElementById('typeChart');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            var raw = Array.isArray(data) ? data : appData;
+            var source = raw.filter(function(p) { return p && p.informacion && p.informacion.tramite; });
+            
+            const conteo = { 'QUEJA': 0, 'PETICION': 0, 'RECLAMO': 0 };
+            source.forEach(p => {
+                const t = (p.informacion.tramite.tipoSolicitud) ? p.informacion.tramite.tipoSolicitud : 'OTRO';
+                conteo[t] = (conteo[t] || 0) + 1;
+            });
+
+            if(chartInstance) chartInstance.destroy();
+
+            var chartType = (getDashboardSettings().chartType || 'doughnut');
+            chartInstance = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: Object.keys(conteo),
+                    datasets: [{
+                        data: Object.values(conteo),
+                        backgroundColor: ['#EF4444', '#3B82F6', '#FF6B00', '#10B981'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: chartType === 'doughnut' ? '70%' : 0,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } }
+                    }
+                }
+            });
+        }
+
+        // --- LÓGICA DEL MODAL ---
+        function openModalByRow(rowNumber) {
+            const pqr = appData.find(p => p.rowNumber === rowNumber);
+            if (pqr) openModal(pqr);
+        }
+
+        function openModal(pqr) {
+            currentPQR = pqr;
+            const info = pqr.informacion || {};
+            const sol = info.solicitante || {};
+            const tram = info.tramite || {};
+
+            // Poblar UI
+            document.getElementById('modal-id').innerText = pqr.id;
+            document.getElementById('modal-fecha').innerText = formatDate(pqr.fechaCreacion);
+            
+            document.getElementById('mod-nombre').innerText = sol.nombreCompleto || 'N/A';
+            document.getElementById('mod-tipodoc').innerText = sol.tipoDocumento || '';
+            document.getElementById('mod-numdoc').innerText = sol.numeroDocumento || 'N/A';
+            document.getElementById('mod-tel').innerText = sol.telefono || 'N/A';
+            document.getElementById('mod-email').innerText = sol.email || 'N/A';
+            
+            document.getElementById('mod-badge-tipo').innerText = tram.tipoSolicitud || 'N/A';
+            document.getElementById('mod-producto').innerText = tram.productoRelacionado || 'N/A';
+            document.getElementById('mod-asunto').innerText = tram.asunto || 'N/A';
+            document.getElementById('mod-desc').innerText = tram.descripcionDetallada || 'Sin descripción';
+            
+            // Poblar Formulario
+            document.getElementById('inp-estado').value = pqr.estado;
+            document.getElementById('inp-asesor').value = pqr.asesor;
+            document.getElementById('inp-nota').value = '';
+
+            renderHistorial(pqr.historial);
+
+            // Mostrar Modal
+            document.getElementById('gestionModal').classList.remove('hidden');
+            document.getElementById('gestionModal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('gestionModal').classList.add('hidden');
+            document.getElementById('gestionModal').classList.remove('flex');
+            currentPQR = null;
+        }
+
+        function renderHistorial(historial) {
+            const container = document.getElementById('mod-historial');
+            container.innerHTML = '';
+            
+            if(!historial || historial.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-400 italic mt-4 text-center">No hay registros de gestión previos.</p>';
+                return;
+            }
+
+            // Linea vertical del timeline
+            const timelineLine = document.createElement('div');
+            timelineLine.className = 'absolute left-[11px] top-2 bottom-2 w-0.5 bg-gray-200 z-0';
+            container.appendChild(timelineLine);
+
+            historial.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'relative pl-8 mb-6 z-10';
+                
+                // Color del punto según si cambió estado
+                let dotColor = 'bg-blue-400';
+                if(item.estadoNuevo === 'Resuelto' || item.estadoNuevo === 'Cerrado') dotColor = 'bg-green-500';
+                
+                itemDiv.innerHTML = `
+                    <div class="absolute left-0 top-1 w-6 h-6 rounded-full ${dotColor} border-4 border-white shadow-sm"></div>
+                    <div class="bg-gray-50 p-3 rounded-lg border border-gray-100 shadow-sm">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-xs font-bold text-gray-700">${item.usuario}</span>
+                            <span class="text-[10px] text-gray-500 flex items-center gap-1"><i class="far fa-clock"></i> ${formatDate(item.fecha)}</span>
+                        </div>
+                        <p class="text-sm text-gray-600 leading-snug">${item.accion}</p>
+                        ${item.estadoAnterior !== item.estadoNuevo ? 
+                          `<div class="mt-2 text-[10px] bg-white inline-block px-2 py-1 rounded border border-gray-200 text-gray-500">
+                             Estado: <span class="line-through">${item.estadoAnterior}</span> &rarr; <span class="font-bold text-proyectiva-orange">${item.estadoNuevo}</span>
+                           </div>` : ''}
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        // --- GUARDAR GESTIÓN ---
+        function savePQR(e) {
+            e.preventDefault();
+            
+            const btnSubmit = e.target.querySelector('button[type="submit"]');
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+            const nuevoEstado = document.getElementById('inp-estado').value;
+            const nuevoAsesor = document.getElementById('inp-asesor').value;
+            const nota = document.getElementById('inp-nota').value;
+
+            const payload = {
+                ...currentPQR,
+                estadoAnterior: currentPQR.estado,
+                estado: nuevoEstado,
+                asesor: nuevoAsesor,
+                nuevaAccionTexto: nota
+            };
+
+            if (isAppsScript) {
+                google.script.run
+                    .withSuccessHandler(response => {
+                        const res = JSON.parse(response);
+                        if(res.status === 'success') {
+                            Swal.fire({
+                                icon: 'success', title: 'Gestión guardada', text: 'La PQR ha sido actualizada.',
+                                confirmButtonColor: '#FF6B00'
+                            });
+                            closeModal();
+                            loadData(); // Recargar todo
+                        } else {
+                            showError("Error al guardar", res.message);
+                        }
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="fas fa-save"></i> Guardar Gestión';
+                    })
+                    .withFailureHandler(error => {
+                        showError("Error de red", error);
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="fas fa-save"></i> Guardar Gestión';
+                    })
+                    .updatePQR(JSON.stringify(payload));
+            } else {
+                // Mock Guardado
+                setTimeout(() => {
+                    Swal.fire({ icon: 'success', title: 'Gestión guardada (Modo Preview)', text: 'En el entorno real esto se guardaría en Google Sheets.', confirmButtonColor: '#FF6B00' });
+                    closeModal();
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = '<i class="fas fa-save"></i> Guardar Gestión';
+                }, 1000);
+            }
+        }
+
+        function showError(title, text) {
+            Swal.fire({ icon: 'error', title: title, text: text, confirmButtonColor: '#002A54' });
+        }
+    </script>

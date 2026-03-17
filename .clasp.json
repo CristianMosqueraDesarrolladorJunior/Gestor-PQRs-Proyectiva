@@ -29,8 +29,11 @@
     "application/leads/SaveLeadGestionVD.js",
     "application/leads/SaveLeadGestionRenovacion.js",
     "application/auth/Authorize.js",
+    "entry/Include.js",
     "entry/doGet.js",
-    "interface/html/index.html"
+    "interface/html/index.html",
+    "interface/html/styles/main.html",
+    "interface/js/App.html"
   ],
   "skipSubdirectories": false
 }
