@@ -53,6 +53,17 @@
         .vd-step:hover { background: rgba(0,42,84,0.05); }
         .vd-guion-card { border-left: 4px solid #002A54; }
         .vd-input-focus:focus { box-shadow: 0 0 0 2px rgba(255,107,0,0.3); }
+        /* Modal VD: texto legible, sin cortes */
+        .vd-modal-content p, .vd-modal-content label, .vd-modal-content span { word-wrap: break-word; overflow-wrap: break-word; }
+        .vd-modal-content .min-w-0 { min-width: 0; }
+        .vd-cell-truncate { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .vd-cell-truncate:hover { white-space: normal; overflow: visible; }
+        /* Tablas: texto visible, wrap en celdas largas */
+        #pqr-table td, #reno-table td, #vd-table td { word-wrap: break-word; overflow-wrap: break-word; }
+        /* Modal PQR: texto legible sin cortes */
+        #gestionModal .modal-content-enter p, #gestionModal .modal-content-enter label, #gestionModal .modal-content-enter span, #gestionModal .modal-content-enter td { word-wrap: break-word; overflow-wrap: break-word; }
+        /* Una sola barra de scroll en modal */
+        #modalLeadGestion .modal-scroll-area { overflow-y: auto; overflow-x: hidden; }
     </style>
 </head>
 <body class="flex h-screen overflow-hidden text-gray-800">
@@ -197,6 +208,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <div id="recent-pagination" class="flex items-center justify-between px-4 py-2 border-t border-gray-200 bg-gray-50 text-xs"></div>
                     </div>
                 </div>
             </div>
@@ -223,20 +235,22 @@
                 </div>
 
                 <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-gray-50">
-                            <tr class="text-xs text-gray-500 uppercase">
-                                <th class="px-6 py-4 font-semibold">ID / Fecha</th>
-                                <th class="px-6 py-4 font-semibold">Solicitante</th>
-                                <th class="px-6 py-4 font-semibold">Detalle Trámite</th>
-                                <th class="px-6 py-4 font-semibold">Estado</th>
-                                <th class="px-6 py-4 font-semibold text-center">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pqr-table-body" class="divide-y divide-gray-100 text-sm">
-                            <!-- Filas generadas dinámicamente -->
-                        </tbody>
-                    </table>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse" id="pqr-table">
+                            <thead class="bg-gray-50">
+                                <tr class="text-xs text-gray-500 uppercase">
+                                    <th class="px-4 py-3 font-semibold min-w-[120px]">ID / Fecha</th>
+                                    <th class="px-4 py-3 font-semibold min-w-[140px]">Solicitante</th>
+                                    <th class="px-4 py-3 font-semibold min-w-[180px]">Detalle Trámite</th>
+                                    <th class="px-4 py-3 font-semibold min-w-[100px]">Estado</th>
+                                    <th class="px-4 py-3 font-semibold text-center min-w-[100px]">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pqr-table-body" class="divide-y divide-gray-100 text-sm">
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="pqr-pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm"></div>
                 </div>
             </div>
 
@@ -302,6 +316,7 @@
                             <tbody id="admin-sinasignar-body" class="divide-y divide-gray-100"></tbody>
                         </table>
                         <p id="admin-sinasignar-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay solicitudes sin asignar.</p>
+                        <div id="admin-sinasignar-pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm"></div>
                     </div>
                 </div>
 
@@ -325,6 +340,7 @@
                             <tbody id="admin-asignadas-body" class="divide-y divide-gray-100"></tbody>
                         </table>
                         <p id="admin-asignadas-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay solicitudes asignadas.</p>
+                        <div id="admin-asignadas-pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm"></div>
                     </div>
                 </div>
 
@@ -364,6 +380,7 @@
                             <tbody id="admin-novedades-body" class="divide-y divide-gray-100"></tbody>
                         </table>
                         <p id="admin-novedades-empty" class="text-gray-500 text-sm py-8 text-center hidden">Cargando usuarios...</p>
+                        <div id="admin-novedades-pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm"></div>
                     </div>
                 </div>
             </div>
@@ -422,20 +439,21 @@
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                        <table class="w-full text-sm" id="reno-table">
                             <thead class="bg-gray-100">
                                 <tr class="text-xs font-semibold text-gray-600 uppercase">
-                                    <th class="px-6 py-4 text-left">Póliza / Fecha</th>
-                                    <th class="px-6 py-4 text-left">Asegurado</th>
-                                    <th class="px-6 py-4 text-left">Agente</th>
-                                    <th class="px-6 py-4 text-left">Estado</th>
-                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                    <th class="px-4 py-3 text-left min-w-[120px]">Póliza / Fecha</th>
+                                    <th class="px-4 py-3 text-left min-w-[140px]">Asegurado</th>
+                                    <th class="px-4 py-3 text-left min-w-[120px]">Agente</th>
+                                    <th class="px-4 py-3 text-left min-w-[120px]">Estado</th>
+                                    <th class="px-4 py-3 text-center min-w-[100px]">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="reno-table-body" class="divide-y divide-gray-100"></tbody>
                         </table>
                         <p id="reno-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay renovaciones para mostrar.</p>
                     </div>
+                    <div id="reno-pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm"></div>
                 </div>
             </div>
 
@@ -492,21 +510,22 @@
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                        <table class="w-full text-sm" id="vd-table">
                             <thead class="bg-gray-100">
                                 <tr class="text-xs font-semibold text-gray-600 uppercase">
-                                    <th class="px-6 py-4 text-left">Solicitud / Fecha</th>
-                                    <th class="px-6 py-4 text-left">Nombre</th>
-                                    <th class="px-6 py-4 text-left">Asesor</th>
-                                    <th class="px-6 py-4 text-left">Producto</th>
-                                    <th class="px-6 py-4 text-left">Estado</th>
-                                    <th class="px-6 py-4 text-center">Acciones</th>
+                                    <th class="px-4 py-3 text-left min-w-[120px]">Solicitud / Fecha</th>
+                                    <th class="px-4 py-3 text-left min-w-[140px]">Nombre</th>
+                                    <th class="px-4 py-3 text-left min-w-[120px]">Asesor</th>
+                                    <th class="px-4 py-3 text-left min-w-[120px]">Producto</th>
+                                    <th class="px-4 py-3 text-left min-w-[100px]">Estado</th>
+                                    <th class="px-4 py-3 text-center min-w-[100px]">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody id="vd-table-body" class="divide-y divide-gray-100"></tbody>
                         </table>
                         <p id="vd-empty" class="text-gray-500 text-sm py-8 text-center hidden">No hay leads para mostrar.</p>
                     </div>
+                    <div id="vd-pagination" class="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50 text-sm"></div>
                 </div>
             </div>
 
@@ -519,7 +538,7 @@
         <div class="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm transition-opacity" onclick="closeModal()"></div>
         
         <!-- Modal Content -->
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative z-10 modal-content-enter overflow-hidden mx-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col relative z-10 modal-content-enter overflow-hidden mx-4">
             
             <!-- Header Modal -->
             <div class="bg-proyectiva-blue px-6 py-4 flex justify-between items-center text-white">
@@ -632,9 +651,9 @@
                     </div>
 
                     <!-- Historial (Audit Trail) -->
-                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col">
-                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">Historial de Trazabilidad</h3>
-                        <div class="flex-1 overflow-y-auto pr-2 custom-scrollbar relative" id="mod-historial">
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col min-h-0">
+                        <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2 shrink-0">Historial de Trazabilidad</h3>
+                        <div class="min-h-[120px] relative" id="mod-historial">
                             <!-- Timeline elements generated by JS -->
                         </div>
                     </div>
@@ -644,9 +663,9 @@
     </div>
 
     <!-- MODAL GESTIÓN RENOVACIONES / VIDA-DESEMPLEO -->
-    <div id="modalLeadGestion" class="fixed inset-0 z-50 hidden items-center justify-center">
+    <div id="modalLeadGestion" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
         <div class="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm" onclick="closeModalLead()"></div>
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col relative z-10 overflow-hidden mx-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-w-[min(95vw,900px)] max-h-[95vh] flex flex-col relative z-10 overflow-hidden mx-4">
             <div class="bg-proyectiva-blue px-6 py-4 flex justify-between items-center text-white">
                 <div>
                     <h2 class="text-xl font-bold flex items-center gap-2">
@@ -659,7 +678,7 @@
                     <i class="fas fa-times text-2xl"></i>
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto custom-scrollbar p-6 bg-gray-50">
+            <div class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-6 bg-gray-50 min-h-0 flex flex-col">
                 <div id="modalLead-renovaciones" class="hidden space-y-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                         <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">Información de la Póliza</h3>
@@ -691,7 +710,7 @@
                         <div id="modalLead-reno-historial" class="space-y-3"></div>
                     </div>
                 </div>
-                <div id="modalLead-vd" class="hidden space-y-6">
+                <div id="modalLead-vd" class="hidden space-y-6 vd-modal-content">
                     <!-- Resumen lead -->
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                         <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">Datos del Lead</h3>
@@ -739,7 +758,7 @@
                                 Finalizar
                             </div>
                         </div>
-                        <div class="p-6 max-h-[calc(100vh-280px)] overflow-y-auto custom-scrollbar">
+                        <div class="p-6 min-h-0 flex-1">
                             <!-- ETAPA 1: Guion Inicial y Autorización -->
                             <div id="vd-etapa-1" class="vd-etapa space-y-6">
                                 <div class="bg-blue-50 p-5 rounded-xl border border-blue-100">
@@ -1198,12 +1217,12 @@
             loadData();
             const renoSearch = document.getElementById('reno-search');
             const renoFilter = document.getElementById('reno-filter-estado');
-            if (renoSearch) renoSearch.addEventListener('input', () => renderRenovacionesTab());
-            if (renoFilter) renoFilter.addEventListener('change', () => renderRenovacionesTab());
+            if (renoSearch) renoSearch.addEventListener('input', () => { renoPage = 1; renderRenovacionesTab(); });
+            if (renoFilter) renoFilter.addEventListener('change', () => { renoPage = 1; renderRenovacionesTab(); });
             const vdSearch = document.getElementById('vd-search');
             const vdFilter = document.getElementById('vd-filter-producto');
-            if (vdSearch) vdSearch.addEventListener('input', () => renderVDTab());
-            if (vdFilter) vdFilter.addEventListener('change', () => renderVDTab());
+            if (vdSearch) vdSearch.addEventListener('input', () => { vdPage = 1; renderVDTab(); });
+            if (vdFilter) vdFilter.addEventListener('change', () => { vdPage = 1; renderVDTab(); });
             document.querySelectorAll('input[name="vd-producto-gestion"]').forEach(r => r.addEventListener('change', () => { vdUpdateProductLabels(); vdValidarEdad(); vdShowStep(vdCurrentStep); }));
             document.querySelectorAll('input[name="vd-tipo-vinculacion"]').forEach(r => r.addEventListener('change', function() {
                 const c = document.getElementById('vd-tipo-contrato-container');
@@ -1266,9 +1285,11 @@
 
         function setKpiFilter(k) {
             filterKPI = k;
+            pqrPage = 1;
+            recentPage = 1;
             const filtered = getFilteredData();
             renderTable(filtered);
-            renderRecentTable(filtered.slice(0, 5));
+            renderRecentTable(filtered);
             drawChart(filtered);
         }
 
@@ -1328,7 +1349,10 @@
             if (tbody1) {
                 tbody1.innerHTML = '';
                 if (empty1) empty1.classList.toggle('hidden', sinAsignar.length > 0);
-                sinAsignar.forEach(p => {
+                const total1 = sinAsignar.length;
+                const pag1 = sinAsignar.slice((adminSinAsignarPage - 1) * PAGE_SIZE, adminSinAsignarPage * PAGE_SIZE);
+                renderPagination('admin-sinasignar-pagination', adminSinAsignarPage, total1, 'setAdminSinAsignarPage');
+                pag1.forEach(p => {
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-gray-50 transition-colors';
                     tr.innerHTML = `
@@ -1348,7 +1372,10 @@
             if (tbody2) {
                 tbody2.innerHTML = '';
                 if (empty2) empty2.classList.toggle('hidden', asignadas.length > 0);
-                asignadas.forEach(p => {
+                const total2 = asignadas.length;
+                const pag2 = asignadas.slice((adminAsignadasPage - 1) * PAGE_SIZE, adminAsignadasPage * PAGE_SIZE);
+                renderPagination('admin-asignadas-pagination', adminAsignadasPage, total2, 'setAdminAsignadasPage');
+                pag2.forEach(p => {
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-gray-50 transition-colors';
                     tr.innerHTML = `
@@ -1368,7 +1395,10 @@
             if (tbody3) {
                 tbody3.innerHTML = '';
                 if (empty3) empty3.classList.toggle('hidden', listUsuarios.length > 0);
-                listUsuarios.forEach(u => {
+                const total3 = listUsuarios.length;
+                const pag3 = listUsuarios.slice((adminNovedadesPage - 1) * PAGE_SIZE, adminNovedadesPage * PAGE_SIZE);
+                renderPagination('admin-novedades-pagination', adminNovedadesPage, total3, 'setAdminNovedadesPage');
+                pag3.forEach(u => {
                     const tr = document.createElement('tr');
                     tr.className = 'hover:bg-gray-50 transition-colors';
                     tr.innerHTML = `
@@ -1384,6 +1414,20 @@
             }
         }
 
+        function setAdminSinAsignarPage(p) {
+            const sinAsignar = appData.filter(x => !x.asesor || x.asesor === 'Sin Asignar' || x.asesor === '');
+            const maxP = Math.max(1, Math.ceil(sinAsignar.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { adminSinAsignarPage = p; renderAdminTab(); }
+        }
+        function setAdminAsignadasPage(p) {
+            const asignadas = appData.filter(x => x.asesor && x.asesor !== 'Sin Asignar');
+            const maxP = Math.max(1, Math.ceil(asignadas.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { adminAsignadasPage = p; renderAdminTab(); }
+        }
+        function setAdminNovedadesPage(p) {
+            const maxP = Math.max(1, Math.ceil((listUsuarios || []).length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { adminNovedadesPage = p; renderAdminTab(); }
+        }
         function asignarPQRAdmin(rowNumber, btn) {
             const row = btn.closest('tr');
             const select = row?.querySelector('.admin-asignar-select');
@@ -1469,7 +1513,10 @@
             if (!tbody) return;
             tbody.innerHTML = '';
             if (empty) empty.classList.toggle('hidden', filtered.length > 0);
-            filtered.forEach((r) => {
+            const totalReno = filtered.length;
+            const paginated = filtered.slice((renoPage - 1) * PAGE_SIZE, renoPage * PAGE_SIZE);
+            renderPagination('reno-pagination', renoPage, totalReno, 'setRenoPage');
+            paginated.forEach((r) => {
                 const ld = r.leadData || r;
                 const poliza = (ld.poliza || r.poliza || '').toString().replace(/'/g, "&#39;");
                 const asegurado = ld.asegurado || r.asegurado || 'N/A';
@@ -1489,6 +1536,11 @@
             });
         }
 
+        function setRenoPage(p) {
+            const filtered = getFilteredRenovaciones();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { renoPage = p; renderRenovacionesTab(); }
+        }
         function getRenoStatusBadge(est) {
             const styles = { 'Pendiente Renovacion': 'bg-amber-50 text-amber-600 border-amber-200', 'Poliza Renovada': 'bg-green-50 text-green-600 border-green-200', 'VENCIDO': 'bg-red-50 text-red-600 border-red-200', 'Caso Especial': 'bg-purple-50 text-purple-600 border-purple-200' };
             const style = styles[est] || 'bg-gray-50 text-gray-600 border-gray-200';
@@ -1560,7 +1612,10 @@
             if (!tbody) return;
             tbody.innerHTML = '';
             if (empty) empty.classList.toggle('hidden', filtered.length > 0);
-            filtered.forEach((v) => {
+            const totalVD = filtered.length;
+            const paginated = filtered.slice((vdPage - 1) * PAGE_SIZE, vdPage * PAGE_SIZE);
+            renderPagination('vd-pagination', vdPage, totalVD, 'setVdPage');
+            paginated.forEach((v) => {
                 const nombre = v.nombre || v.leadData?.nombre || 'N/A';
                 const solicitud = (v.numeroSolicitud || v.poliza || v.id || 'N/A').toString().replace(/'/g, "&#39;");
                 const asesor = v.asesorAsignado || v.asesor || 'N/A';
@@ -1580,6 +1635,11 @@
             });
         }
 
+        function setVdPage(p) {
+            const filtered = getFilteredVD();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { vdPage = p; renderVDTab(); }
+        }
         function getVDStatusBadge(est) {
             const s = (est || '').toLowerCase();
             const style = s.indexOf('venta') >= 0 ? 'bg-green-50 text-green-600 border-green-200' : s.indexOf('desist') >= 0 ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200';
@@ -2464,9 +2524,11 @@
         // --- PROCESAMIENTO Y RENDERIZADO ---
         function processData() {
             renderKPIs();
+            pqrPage = 1;
+            recentPage = 1;
             const filtered = getFilteredData();
             renderTable(filtered);
-            renderRecentTable(filtered.slice(0, 5));
+            renderRecentTable(filtered);
             drawChart(filtered);
         }
 
@@ -2506,11 +2568,40 @@
             return d.toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
         }
 
+        const PAGE_SIZE = 20;
+        let pqrPage = 1, renoPage = 1, vdPage = 1, recentPage = 1;
+        let adminSinAsignarPage = 1, adminAsignadasPage = 1, adminNovedadesPage = 1;
+
+        function renderPagination(containerId, currentPage, totalItems, onPageChange) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            if (totalItems === 0) {
+                el.innerHTML = '<span class="text-gray-600">No hay registros</span>';
+                return;
+            }
+            const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
+            const start = (currentPage - 1) * PAGE_SIZE + 1;
+            const end = Math.min(currentPage * PAGE_SIZE, totalItems);
+            el.innerHTML = totalItems <= PAGE_SIZE ? `
+                <span class="text-gray-600">Mostrando ${totalItems} de ${totalItems} registros</span>
+            ` : `
+                <span class="text-gray-600">Mostrando ${start}-${end} de ${totalItems} registros</span>
+                <div class="flex gap-2 items-center">
+                    <button onclick="${onPageChange}(${currentPage - 1})" ${currentPage <= 1 ? 'disabled' : ''} class="px-3 py-1 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100">Anterior</button>
+                    <span class="text-sm text-gray-700">Pág. ${currentPage} de ${totalPages}</span>
+                    <button onclick="${onPageChange}(${currentPage + 1})" ${currentPage >= totalPages ? 'disabled' : ''} class="px-3 py-1 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100">Siguiente</button>
+                </div>
+            `;
+        }
+
         function renderTable(data) {
             const tbody = document.getElementById('pqr-table-body');
             tbody.innerHTML = '';
+            const total = data.length;
+            const paginated = data.slice((pqrPage - 1) * PAGE_SIZE, pqrPage * PAGE_SIZE);
+            renderPagination('pqr-pagination', pqrPage, total, 'setPqrPage');
 
-            data.forEach(pqr => {
+            paginated.forEach(pqr => {
                 const info = pqr.informacion;
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-gray-50 transition-colors border-b border-gray-50';
@@ -2524,9 +2615,9 @@
                         <div class="font-semibold text-gray-800">${info.solicitante?.nombreCompleto || 'Sin nombre'}</div>
                         <div class="text-xs text-gray-500">${info.solicitante?.email || ''}</div>
                     </td>
-                    <td class="px-6 py-4 max-w-xs">
+                    <td class="px-6 py-4 min-w-[180px] max-w-[320px]">
                         <div class="flex gap-2 mb-1">${getTypeBadge(info.tramite?.tipoSolicitud)}</div>
-                        <div class="text-sm text-gray-700 truncate" title="${info.tramite?.asunto}">${info.tramite?.asunto || ''}</div>
+                        <div class="text-sm text-gray-700 break-words" title="${(info.tramite?.asunto || '').replace(/"/g, '&quot;')}">${info.tramite?.asunto || ''}</div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         ${getStatusBadge(pqr.estado)}
@@ -2544,11 +2635,20 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-500">No se encontraron PQRs.</td></tr>`;
             }
         }
+        function setPqrPage(p) {
+            const filtered = getFilteredData();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { pqrPage = p; renderTable(filtered); }
+        }
 
         function renderRecentTable(data) {
             const tbody = document.getElementById('recent-table-body');
+            if (!tbody) return;
             tbody.innerHTML = '';
-            data.forEach(pqr => {
+            const total = data.length;
+            const paginated = data.slice((recentPage - 1) * PAGE_SIZE, recentPage * PAGE_SIZE);
+            renderPagination('recent-pagination', recentPage, total, 'setRecentPage');
+            paginated.forEach(pqr => {
                 const tr = document.createElement('tr');
                 tr.className = 'border-b border-gray-50';
                 tr.innerHTML = `
@@ -2560,11 +2660,18 @@
                 tbody.appendChild(tr);
             });
         }
+        function setRecentPage(p) {
+            const filtered = getFilteredData();
+            const maxP = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+            if (p >= 1 && p <= maxP) { recentPage = p; renderRecentTable(filtered); }
+        }
 
         function filterTable() {
+            pqrPage = 1;
+            recentPage = 1;
             const filtered = getFilteredData();
             renderTable(filtered);
-            renderRecentTable(filtered.slice(0, 5));
+            renderRecentTable(filtered);
             drawChart(filtered);
         }
 
