@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proyectiva - Gestión de PQRs</title>
+    <title>Proyectiva — Gestión General de Leads</title>
     <!-- Tailwind CSS (Diseño moderno y rápido) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome para íconos -->
@@ -55,7 +55,7 @@
             </a>
             <a href="#" onclick="switchTab('pqrs'); return false;" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors" id="nav-pqrs">
                 <i class="fas fa-inbox w-5 shrink-0"></i>
-                <span class="sidebar-text">Gestión de PQRs</span>
+                <span class="sidebar-text">Gestión General de Leads</span>
             </a>
             <a href="#" onclick="switchTab('renovaciones'); return false;" id="nav-renovaciones" style="display:none" class="flex items-center gap-3 p-3 rounded-lg hover:bg-blue-800 text-blue-200 hover:text-white transition-colors">
                 <i class="fas fa-sync-alt w-5 shrink-0"></i>
@@ -126,7 +126,7 @@
                 <div id="dashboard-charts" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                     <!-- Generado por renderDashboardCharts() -->
                 </div>
-                <!-- Log de actividad reciente (cambios en PQRs, Renovaciones, Vida y Desempleo) -->
+                <!-- Log de actividad reciente (PQR, renovaciones, vida y desempleo) -->
                 <div id="dashboard-recent-section" class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
                     <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap items-center justify-between gap-4">
                         <h3 class="text-lg font-semibold text-gray-700" id="dashboard-recent-title"><i class="fas fa-history text-proyectiva-orange mr-2"></i>Log de Cambios Recientes</h3>
@@ -154,7 +154,7 @@
             <!-- MODAL AJUSTES DASHBOARD -->
             <div id="modalDashboardSettings" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/50" onclick="if(event.target===this) closeDashboardSettings()">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col" onclick="event.stopPropagation()">
-                    <div class="bg-proyectiva-blue px-6 py-4 flex justify-between items-center text-white">
+                    <div class="modal-header-gradient px-6 py-4 flex justify-between items-center text-white">
                         <h2 class="text-xl font-bold flex items-center gap-2">
                             <i class="fas fa-cog text-proyectiva-orange"></i> Ajustes del Dashboard
                         </h2>
@@ -219,8 +219,8 @@
 
                 <div class="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
                     <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse" id="pqr-table">
-                            <thead class="bg-gray-50">
+                        <table class="crm-leads-table w-full text-left border-collapse" id="pqr-table">
+                            <thead>
                                 <tr class="text-xs text-gray-500 uppercase">
                                     <th class="px-4 py-3 font-semibold min-w-[120px]">ID / Fecha</th>
                                     <th class="px-4 py-3 font-semibold min-w-[140px]">Solicitante</th>
@@ -422,8 +422,8 @@
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-sm" id="reno-table">
-                            <thead class="bg-gray-100">
+                        <table class="crm-leads-table w-full text-sm" id="reno-table">
+                            <thead>
                                 <tr class="text-xs font-semibold text-gray-600 uppercase">
                                     <th class="px-4 py-3 text-left min-w-[120px]">Póliza / Fecha</th>
                                     <th class="px-4 py-3 text-left min-w-[140px]">Asegurado</th>
@@ -443,40 +443,40 @@
             <!-- VISTA: VIDA Y DESEMPLEO -->
             <div id="view-vd" class="hidden space-y-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-proyectiva-blue">
+                    <div class="kpi-card kpi-blue p-6 rounded-xl">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">Total Leads</p>
                                 <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-total">0</h3>
                             </div>
-                            <div class="p-3 bg-blue-50 rounded-lg text-proyectiva-blue"><i class="fas fa-users text-xl"></i></div>
+                            <div class="kpi-icon icon-blue"><i class="fas fa-users text-xl"></i></div>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-yellow-500">
+                    <div class="kpi-card kpi-yellow p-6 rounded-xl">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">En Gestión</p>
                                 <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-gestion">0</h3>
                             </div>
-                            <div class="p-3 bg-yellow-50 rounded-lg text-yellow-600"><i class="fas fa-spinner text-xl"></i></div>
+                            <div class="kpi-icon icon-yellow"><i class="fas fa-spinner text-xl"></i></div>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-green-500">
+                    <div class="kpi-card kpi-green p-6 rounded-xl">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">Ventas</p>
                                 <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-ventas">0</h3>
                             </div>
-                            <div class="p-3 bg-green-50 rounded-lg text-green-500"><i class="fas fa-check-circle text-xl"></i></div>
+                            <div class="kpi-icon icon-green"><i class="fas fa-check-circle text-xl"></i></div>
                         </div>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm p-6 border-l-4 border-gray-400">
+                    <div class="kpi-card kpi-gray p-6 rounded-xl">
                         <div class="flex justify-between items-start">
                             <div>
                                 <p class="text-sm text-gray-500 font-medium">Desistidos</p>
                                 <h3 class="text-3xl font-bold text-gray-800 mt-1" id="vd-kpi-desistidos">0</h3>
                             </div>
-                            <div class="p-3 bg-gray-100 rounded-lg text-gray-600"><i class="fas fa-times text-xl"></i></div>
+                            <div class="kpi-icon icon-gray"><i class="fas fa-times text-xl"></i></div>
                         </div>
                     </div>
                 </div>
@@ -493,8 +493,8 @@
                         </div>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-sm" id="vd-table">
-                            <thead class="bg-gray-100">
+                        <table class="crm-leads-table w-full text-sm" id="vd-table">
+                            <thead>
                                 <tr class="text-xs font-semibold text-gray-600 uppercase">
                                     <th class="px-4 py-3 text-left min-w-[120px]">Solicitud / Fecha</th>
                                     <th class="px-4 py-3 text-left min-w-[140px]">Nombre</th>
@@ -524,11 +524,11 @@
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] flex flex-col relative z-10 modal-content-enter overflow-hidden mx-4">
             
             <!-- Header Modal -->
-            <div class="bg-proyectiva-blue px-6 py-4 flex justify-between items-center text-white">
+            <div class="modal-header-gradient px-6 py-4 flex justify-between items-center text-white">
                 <div>
                     <h2 class="text-xl font-bold flex items-center gap-2">
                         <i class="fas fa-clipboard-list text-proyectiva-orange"></i>
-                        Gestión de PQR: <span id="modal-id">---</span>
+                        Gestión de lead (PQR): <span id="modal-id">---</span>
                     </h2>
                     <p class="text-sm text-blue-200 mt-1">Radicado el: <span id="modal-fecha">---</span></p>
                 </div>
@@ -648,8 +648,8 @@
     <!-- MODAL GESTIÓN RENOVACIONES / VIDA-DESEMPLEO -->
     <div id="modalLeadGestion" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
         <div class="absolute inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm" onclick="closeModalLead()"></div>
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-w-[min(95vw,900px)] max-h-[95vh] flex flex-col relative z-10 overflow-hidden mx-4">
-            <div class="bg-proyectiva-blue px-6 py-4 flex justify-between items-center text-white">
+        <div id="modalLeadGestionCard" class="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-w-[min(95vw,900px)] max-h-[95vh] flex flex-col relative z-10 overflow-hidden mx-4">
+            <div class="modal-header-gradient px-6 py-4 flex justify-between items-center text-white shrink-0">
                 <div>
                     <h2 class="text-xl font-bold flex items-center gap-2">
                         <i class="fas fa-clipboard-list text-proyectiva-orange"></i>
@@ -661,7 +661,7 @@
                     <i class="fas fa-times text-2xl"></i>
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-6 bg-gray-50 min-h-0 flex flex-col">
+            <div id="modalLeadGestionScroll" class="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar p-6 bg-gray-50 min-h-0 flex flex-col">
                 <div id="modalLead-renovaciones" class="hidden space-y-6">
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                         <h3 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-4 border-b pb-2">Información de la Póliza</h3>
@@ -703,12 +703,12 @@
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
                         <h3 class="text-sm font-bold text-proyectiva-blue uppercase tracking-wider mb-4 border-b pb-2">Producto a gestionar</h3>
                         <div class="flex gap-4">
-                            <label class="flex items-center gap-2 cursor-pointer p-4 rounded-xl border-2 border-gray-200 hover:border-green-400 transition-colors has-[:checked]:border-green-500 has-[:checked]:bg-green-50">
+                            <label id="vd-label-vida" class="flex items-center gap-2 cursor-pointer p-4 rounded-xl border-2 border-gray-200 hover:border-green-400 transition-colors has-[:checked]:border-green-500 has-[:checked]:bg-green-50">
                                 <input type="radio" name="vd-producto-gestion" value="vida" class="text-proyectiva-blue focus:ring-proyectiva-orange" checked>
                                 <i class="fas fa-heart text-green-600"></i>
                                 <span class="font-semibold">Seguro de Vida</span>
                             </label>
-                            <label class="flex items-center gap-2 cursor-pointer p-4 rounded-xl border-2 border-gray-200 hover:border-blue-400 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
+                            <label id="vd-label-desempleo" class="flex items-center gap-2 cursor-pointer p-4 rounded-xl border-2 border-gray-200 hover:border-blue-400 transition-colors has-[:checked]:border-blue-500 has-[:checked]:bg-blue-50">
                                 <input type="radio" name="vd-producto-gestion" value="desempleo" class="text-proyectiva-blue focus:ring-proyectiva-orange">
                                 <i class="fas fa-briefcase text-blue-600"></i>
                                 <span class="font-semibold">Seguro de Desempleo</span>

@@ -11,7 +11,7 @@
 function doGet(e) {
   return HtmlService.createTemplateFromFile('interface/html/index')
     .evaluate()
-    .setTitle('Proyectiva - Gestión de PQRs')
+    .setTitle('Proyectiva — Gestión General de Leads')
     .setFaviconUrl('https://img.icons8.com/color/48/000000/shield.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);

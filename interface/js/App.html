@@ -43,7 +43,7 @@
             ]
         };
 
-        const SECTION_LABELS = { pqr: 'PQRs', renovaciones: 'Renovaciones', vd: 'Vida y Desempleo' };
+        const SECTION_LABELS = { pqr: 'Leads PQR', renovaciones: 'Renovaciones', vd: 'Vida y Desempleo' };
 
         const ROLE_LABELS = {
             superAdmin: 'Administrador General',
@@ -131,7 +131,7 @@
                 if (el) el.addEventListener('input', vdActualizarGuionCotizador);
                 if (el) el.addEventListener('change', vdActualizarGuionCotizador);
             });
-            document.querySelectorAll('.vd-step').forEach((el, i) => {
+            document.querySelectorAll('#modalLead-vd .vd-step').forEach((el, i) => {
                 el.addEventListener('click', () => {
                     const step = i + 1;
                     if (step <= vdCurrentStep) vdShowStep(step);
@@ -217,7 +217,7 @@
             if (tabId === 'renovaciones') renderRenovacionesTab();
             if (tabId === 'vd') renderVDTab();
 
-            const titles = { dashboard: 'Dashboard Ejecutivo', pqrs: 'Gestión Integral de PQRs', admin: 'Panel de Administración', renovaciones: 'Gestión de Renovaciones', vd: 'Vida y Desempleo' };
+            const titles = { dashboard: 'Dashboard Ejecutivo', pqrs: 'Gestión General de Leads — PQR', admin: 'Panel de Administración', renovaciones: 'Gestión de Renovaciones', vd: 'Vida y Desempleo' };
             document.getElementById('header-title').innerText = titles[tabId] || 'Proyectiva';
         }
 
@@ -423,7 +423,7 @@
                     <td class="px-6 py-4 text-gray-800">${asegurado}</td>
                     <td class="px-6 py-4 text-sm text-gray-600">${agente}</td>
                     <td class="px-6 py-4">${getRenoStatusBadge(est)}</td>
-                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadReno('${poliza}')" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
+                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadReno('${poliza}')" class="crm-action-btn bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -435,9 +435,24 @@
             if (p >= 1 && p <= maxP) { renoPage = p; renderRenovacionesTab(); }
         }
         function getRenoStatusBadge(est) {
-            const styles = { 'Pendiente Renovacion': 'bg-amber-50 text-amber-600 border-amber-200', 'Poliza Renovada': 'bg-green-50 text-green-600 border-green-200', 'VENCIDO': 'bg-red-50 text-red-600 border-red-200', 'Caso Especial': 'bg-purple-50 text-purple-600 border-purple-200' };
-            const style = styles[est] || 'bg-gray-50 text-gray-600 border-gray-200';
-            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${est}</span>`;
+            const key = (est || '').toString();
+            const map = { 'Pendiente Renovacion': 'por-vencer', 'Poliza Renovada': 'vigente', 'VENCIDO': 'vencido', 'Caso Especial': 'por-vencer' };
+            const variant = map[key] || 'por-vencer';
+            return `<span class="status-badge ${variant} text-xs">${key || '—'}</span>`;
+        }
+
+        /** Formato COP unificado para modal renovaciones (bug 2.5) */
+        function renoFormatearMoneda(val) {
+            if (val == null || val === '') return '—';
+            if (typeof val === 'number' && !isNaN(val)) {
+                return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(val);
+            }
+            const s = String(val).trim();
+            const digits = s.replace(/[^\d]/g, '');
+            if (!digits) return s;
+            const n = parseInt(digits, 10);
+            if (isNaN(n)) return s;
+            return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
         }
 
         function openModalLeadReno(polizaKey) {
@@ -455,7 +470,7 @@
                 <div><p class="text-xs text-gray-500">Póliza</p><p class="font-semibold">${ld.poliza || 'N/A'}</p></div>
                 <div><p class="text-xs text-gray-500">Asegurado</p><p class="font-semibold">${ld.asegurado || 'N/A'}</p></div>
                 <div><p class="text-xs text-gray-500">Vencimiento</p><p class="font-semibold">${formatDate(ld.vencimiento)}</p></div>
-                <div><p class="text-xs text-gray-500">Canon</p><p class="font-semibold">${ld.canon || 'N/A'}</p></div>
+                <div><p class="text-xs text-gray-500">Canon</p><p class="font-semibold">${renoFormatearMoneda(ld.canon != null ? ld.canon : r.canon)}</p></div>
             `;
             document.getElementById('inp-reno-estado').value = r.estadoGestion || r.estado || 'Pendiente Renovacion';
             document.getElementById('inp-reno-obs').value = '';
@@ -491,12 +506,15 @@
             if (!document.getElementById('vd-table-body')) return;
             const filtered = getFilteredVD();
             const total = vdData.length;
-            const enGestion = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('gestión') >= 0 || (v.estadoGestion || '') === 'En Gestion').length;
+            const enGestion = vdData.filter(function(v) {
+                var e = ((v.estadoGestion || v.estado || '') + '').toLowerCase();
+                return e.indexOf('gestión') >= 0 || e.indexOf('gestion') >= 0 || e.indexOf('en gest') >= 0;
+            }).length;
             const ventas = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('venta') >= 0).length;
             const desistidos = vdData.filter(v => (v.estadoGestion || v.estado || '').toLowerCase().indexOf('desist') >= 0).length;
 
             document.getElementById('vd-kpi-total').innerText = total;
-            document.getElementById('vd-kpi-gestion').innerText = enGestion || total;
+            document.getElementById('vd-kpi-gestion').innerText = String(enGestion);
             document.getElementById('vd-kpi-ventas').innerText = ventas;
             document.getElementById('vd-kpi-desistidos').innerText = desistidos;
 
@@ -522,7 +540,7 @@
                     <td class="px-6 py-4 text-sm text-gray-600">${asesor}</td>
                     <td class="px-6 py-4">${producto}</td>
                     <td class="px-6 py-4">${getVDStatusBadge(est)}</td>
-                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadVD('${solicitud}')" class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
+                    <td class="px-6 py-4 text-center"><button onclick="openModalLeadVD('${solicitud}')" class="crm-action-btn bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors">Gestionar</button></td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -535,11 +553,14 @@
         }
         function getVDStatusBadge(est) {
             const s = (est || '').toLowerCase();
-            const style = s.indexOf('venta') >= 0 ? 'bg-green-50 text-green-600 border-green-200' : s.indexOf('desist') >= 0 ? 'bg-gray-100 text-gray-600 border-gray-200' : 'bg-yellow-50 text-yellow-600 border-yellow-200';
-            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${est}</span>`;
+            var variant = 'por-vencer';
+            if (s.indexOf('venta') >= 0) variant = 'vigente';
+            else if (s.indexOf('desist') >= 0) variant = 'vencido';
+            return `<span class="status-badge ${variant} text-xs">${est || '—'}</span>`;
         }
 
         let vdCurrentStep = 1;
+        let vdSuppressValidation = false;
 
         function openModalLeadVD(solicitudKey) {
             const v = vdData.find(x => (x.numeroSolicitud || x.poliza || x.id || '') === solicitudKey);
@@ -571,13 +592,6 @@
                     <p class="font-semibold text-gray-800 truncate" title="${esc(v.productoAsignado || v.producto)}">${esc(v.productoAsignado || v.producto)}</p>
                 </div>
             `;
-            const prod = (v.productoAsignado || v.producto || 'vida').toLowerCase();
-            if (prod.indexOf('desempleo') >= 0) {
-                document.querySelector('input[name="vd-producto-gestion"][value="desempleo"]').checked = true;
-            } else {
-                document.querySelector('input[name="vd-producto-gestion"][value="vida"]').checked = true;
-            }
-            vdUpdateProductLabels();
             const hist = document.getElementById('modalLead-vd-historial');
             const hg = v.historiaGestiones || v.historialGestiones || v.historial || [];
             hist.innerHTML = hg.length ? hg.map(h => {
@@ -588,6 +602,7 @@
                     <span class="text-sm text-gray-700 flex-1 min-w-0">${(txt || '-').toString().replace(/</g, '&lt;')}</span>
                 </div>`;
             }).join('') : '<p class="text-gray-500 text-sm py-4 text-center">Sin historial de gestiones.</p>';
+            vdSuppressValidation = true;
             vdResetForms();
             const nom = v.nombre || '[NOMBRE]';
             document.getElementById('vd-guion-nombre').textContent = nom;
@@ -625,6 +640,17 @@
                 if (r) r.checked = true;
             }
             vdActualizarGuionCotizador();
+            const prod = (v.productoAsignado || v.producto || 'vida').toLowerCase();
+            if (prod.indexOf('desempleo') >= 0) {
+                const rde = document.querySelector('input[name="vd-producto-gestion"][value="desempleo"]');
+                if (rde) rde.checked = true;
+            } else {
+                const rv = document.querySelector('input[name="vd-producto-gestion"][value="vida"]');
+                if (rv) rv.checked = true;
+            }
+            vdAplicarProductosPorEspecialidad();
+            vdUpdateProductLabels();
+            vdSuppressValidation = false;
             vdShowStep(1);
             document.getElementById('modalLeadGestion').classList.remove('hidden');
             document.getElementById('modalLeadGestion').classList.add('flex');
@@ -632,6 +658,31 @@
 
         function vdGetProducto() {
             return document.querySelector('input[name="vd-producto-gestion"]:checked')?.value || 'vida';
+        }
+
+        /** Oculta productos según rol y corrige selección si el asignado quedó oculto (bug 2.3) */
+        function vdAplicarProductosPorEspecialidad() {
+            var role = ((userInfo && userInfo.role) || '').toString().trim();
+            var labelVida = document.getElementById('vd-label-vida');
+            var labelDes = document.getElementById('vd-label-desempleo');
+            var radioVida = document.querySelector('input[name="vd-producto-gestion"][value="vida"]');
+            var radioDes = document.querySelector('input[name="vd-producto-gestion"][value="desempleo"]');
+            if (!labelVida || !labelDes) return;
+            labelVida.classList.remove('hidden');
+            labelDes.classList.remove('hidden');
+            if (role === 'Seguro de Vida') {
+                labelDes.classList.add('hidden');
+                if (radioDes && radioDes.checked && radioVida) {
+                    radioVida.checked = true;
+                    Swal.fire('Producto ajustado', 'El producto asignado (Desempleo) no está disponible para su rol. Se seleccionó Vida automáticamente.', 'info');
+                }
+            } else if (role === 'Seguro de Desempleo') {
+                labelVida.classList.add('hidden');
+                if (radioVida && radioVida.checked && radioDes) {
+                    radioDes.checked = true;
+                    Swal.fire('Producto ajustado', 'El producto asignado (Vida) no está disponible para su rol. Se seleccionó Desempleo automáticamente.', 'info');
+                }
+            }
         }
 
         /** Actualiza guion cotizador con valores en tiempo real */
@@ -653,10 +704,10 @@
 
         function vdUpdateProductLabels() {
             const isVida = vdGetProducto() === 'vida';
-            document.querySelectorAll('.vd-step-vida').forEach(el => el.classList.toggle('hidden', !isVida));
-            document.querySelectorAll('.vd-step-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
-            document.querySelectorAll('.vd-guion-vida').forEach(el => el.classList.toggle('hidden', !isVida));
-            document.querySelectorAll('.vd-guion-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
+            document.querySelectorAll('#modalLead-vd .vd-step-vida').forEach(el => el.classList.toggle('hidden', !isVida));
+            document.querySelectorAll('#modalLead-vd .vd-step-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
+            document.querySelectorAll('#modalLead-vd .vd-guion-vida').forEach(el => el.classList.toggle('hidden', !isVida));
+            document.querySelectorAll('#modalLead-vd .vd-guion-desempleo').forEach(el => el.classList.toggle('hidden', isVida));
             const datosVida = document.getElementById('vd-datos-vida-inicial');
             if (datosVida) datosVida.classList.remove('hidden');
         }
@@ -675,6 +726,7 @@
 
         /** Helper: muestra feedback visual en tiempo real (borde rojo/verde + mensaje) */
         function vdMostrarFeedbackCampo(el, valido, mensaje) {
+            if (vdSuppressValidation) return;
             if (!el) return;
             el.classList.remove('border-red-500', 'border-green-500');
             el.classList.add(valido ? 'border-green-500' : 'border-red-500');
@@ -694,6 +746,7 @@
 
         /** Validador EMAIL - tiempo real */
         function vdValidarEmail() {
+            if (vdSuppressValidation) return true;
             const el = document.getElementById('vd-email-cliente');
             const v = (el?.value || '').trim();
             if (!v) { vdMostrarFeedbackCampo(el, false, 'El correo es requerido.'); return false; }
@@ -705,6 +758,7 @@
 
         /** Validador COTIZADOR - tiempo real */
         function vdValidarCotizador() {
+            if (vdSuppressValidation) return true;
             const canonEl = document.getElementById('vd-canon');
             const costoEl = document.getElementById('vd-costo-proteccion');
             const canon = parseFloat(canonEl?.value) || 0;
@@ -935,6 +989,7 @@
 
         /** Calcula IMC y asegurabilidad en tiempo real (base CRM) */
         function vdCalcularIMC() {
+            if (vdSuppressValidation) return;
             const p = parseFloat(document.getElementById('vd-peso')?.value);
             const e = parseFloat(document.getElementById('vd-estatura')?.value) / 100;
             const imcEl = document.getElementById('vd-imc');
@@ -993,6 +1048,7 @@
 
         /** Validador de cuenta/tarjeta - igual que base CRM (validateAccountNumber) */
         function vdValidateAccountNumber() {
+            if (vdSuppressValidation) return true;
             const canal = document.getElementById('vd-canal-descuento')?.value;
             const entidad = document.getElementById('vd-entidad-bancaria')?.value;
             const franquicia = document.getElementById('vd-franquicia-descuento')?.value;
@@ -1061,6 +1117,7 @@
 
         /** Validador DESCUENTO DÉBITO - tiempo real (prima + cuenta) */
         function vdValidarDescuento() {
+            if (vdSuppressValidation) return true;
             const primaEl = document.getElementById('vd-valor-prima');
             const prima = parseFloat(primaEl?.value) || 0;
             const cuentaOk = vdValidateAccountNumber();
@@ -1074,6 +1131,12 @@
             const fechaEl = document.getElementById('vd-fecha-nacimiento');
             const fecha = fechaEl?.value;
             const disp = document.getElementById('vd-edad-display');
+            if (vdSuppressValidation) {
+                if (!fecha) { if (disp) disp.textContent = '--'; return true; }
+                var ed = vdCalcularEdad(fecha);
+                if (disp) disp.textContent = ed != null ? ed + ' años' : '--';
+                return true;
+            }
             if (!fecha) {
                 vdMostrarFeedbackCampo(fechaEl, false, 'Ingrese la fecha de nacimiento.');
                 if (disp) disp.textContent = '--';
@@ -1108,7 +1171,10 @@
 
         function vdResetForms() {
             document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(el => { if (el.type !== 'radio' && el.type !== 'checkbox') el.value = ''; });
-            document.querySelectorAll('#modalLead-vd input[type="radio"], #modalLead-vd input[type="checkbox"]').forEach(el => el.checked = false);
+            document.querySelectorAll('#modalLead-vd input[type="radio"], #modalLead-vd input[type="checkbox"]').forEach(function(el) {
+                if (el.name === 'vd-producto-gestion') return;
+                el.checked = false;
+            });
             document.querySelectorAll('#modalLead-vd [id$="-msg"]').forEach(el => { el.innerHTML = ''; el.classList.add('hidden'); });
             document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(el => { el.classList.remove('border-red-500', 'border-green-500'); });
             const edadDisp = document.getElementById('vd-edad-display');
@@ -1130,15 +1196,18 @@
 
         function vdShowStep(step) {
             vdCurrentStep = step;
-            document.querySelectorAll('.vd-step').forEach((el, i) => {
+            document.querySelectorAll('#modalLead-vd .vd-step').forEach((el, i) => {
                 const n = i + 1;
                 el.classList.toggle('border-proyectiva-blue', n === step);
                 el.classList.toggle('text-proyectiva-blue', n === step);
                 el.classList.toggle('border-transparent', n !== step);
                 el.classList.toggle('text-gray-500', n !== step);
-                el.querySelector('span').className = 'w-8 h-8 rounded-full flex items-center justify-center text-sm ' + (n === step ? 'bg-proyectiva-blue text-white' : 'bg-gray-200 text-gray-600');
+                var badge = el.firstElementChild;
+                if (badge && badge.tagName === 'SPAN') {
+                    badge.className = 'w-8 h-8 rounded-full flex items-center justify-center text-sm ' + (n === step ? 'bg-proyectiva-blue text-white' : 'bg-gray-200 text-gray-600');
+                }
             });
-            document.querySelectorAll('.vd-etapa').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('#modalLead-vd .vd-etapa').forEach(el => el.classList.add('hidden'));
             const isVida = vdGetProducto() === 'vida';
             let etapaId = 'vd-etapa-' + step;
             if (step === 2) etapaId += isVida ? '-vida' : '-desempleo';
@@ -1162,14 +1231,14 @@
                 const autoriza = document.querySelector('input[name="vd-autoriza-datos"]:checked')?.value;
                 if (!email) { Swal.fire('Validación', 'Ingrese el correo del cliente.', 'warning'); return false; }
                 if (!autoriza) { Swal.fire('Validación', 'Indique si el cliente autoriza o no.', 'warning'); return false; }
-                if (autoriza === 'no') { Swal.fire('Gestión suspendida', 'El cliente no autorizó. La gestión debe suspenderse.', 'info'); closeModalLead(); return false; }
+                if (autoriza === 'no') { Swal.fire('Gestión suspendida', 'El cliente no autorizó. Puede corregir la selección o cerrar manualmente.', 'info'); return false; }
                 const fechaNac = document.getElementById('vd-fecha-nacimiento').value;
                 const edadDisp = document.getElementById('vd-edad-display').textContent;
                 if (!fechaNac) { Swal.fire('Validación', 'Ingrese la fecha de nacimiento y haga clic en Validar Edad.', 'warning'); document.getElementById('vd-fecha-nacimiento').classList.add('border-red-500'); return false; }
                 const edad = vdCalcularEdad(fechaNac);
                 if (edad === null) { Swal.fire('Validación', 'Fecha de nacimiento inválida.', 'warning'); return false; }
                 if (edad < 18) { Swal.fire('No asegurable', 'El cliente es menor de 18 años. La gestión debe suspenderse.', 'error'); return false; }
-                if (edad > 79) { Swal.fire('No asegurable', 'El cliente es mayor de 79 años. La gestión será desistida.', 'warning'); closeModalLead(); return false; }
+                if (edad > 79) { Swal.fire('No asegurable', 'El cliente es mayor de 79 años. Puede corregir la fecha o cerrar manualmente.', 'warning'); return false; }
                 if (vdGetProducto() === 'vida' && edad > 60) { Swal.fire('No asegurable', 'Para Seguro de Vida el cliente no puede ser mayor de 60 años. Cambie a Desempleo.', 'warning'); return false; }
                 if (edadDisp === '--' || edadDisp === 'Digita fecha' || edadDisp === 'Fecha inválida') { Swal.fire('Validación', 'Haga clic en Validar Edad antes de continuar.', 'warning'); return false; }
                 const canon = parseFloat(document.getElementById('vd-canon').value) || 0;
@@ -1179,10 +1248,10 @@
             if (step === 2 && isVida) {
                 const p1 = document.querySelector('input[name="vd-p1-licito"]:checked')?.value;
                 const p2 = document.querySelector('input[name="vd-p2-penal"]:checked')?.value;
-                if (p1 === 'no') { Swal.fire('No asegurable', 'Las actividades no son lícitas. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
-                if (p2 === 'no') { Swal.fire('No asegurable', 'El cliente ha tenido proceso penal. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                if (p1 === 'no') { Swal.fire('No asegurable', 'Las actividades no son lícitas. Puede corregir o cerrar manualmente.', 'error'); return false; }
+                if (p2 === 'no') { Swal.fire('No asegurable', 'El cliente ha tenido proceso penal. Puede corregir o cerrar manualmente.', 'error'); return false; }
                 const asegurable = document.getElementById('vd-asegurable')?.value || '';
-                if (asegurable === 'NO ASEGURABLE') { Swal.fire('No asegurable', 'El IMC indica que el cliente no es asegurable. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                if (asegurable === 'NO ASEGURABLE') { Swal.fire('No asegurable', 'El IMC indica que el cliente no es asegurable. Puede corregir o cerrar manualmente.', 'error'); return false; }
                 const peso = parseFloat(document.getElementById('vd-peso').value);
                 const est = parseFloat(document.getElementById('vd-estatura').value);
                 const freq = document.getElementById('vd-frecuencia-deporte').value;
@@ -1190,7 +1259,7 @@
                 if (!freq) { Swal.fire('Validación', 'Seleccione frecuencia de deportes.', 'warning'); return false; }
                 const medReq = ['vd-hipertension','vd-colesterol','vd-diabetes','vd-coronaria','vd-insuficiencia-renal','vd-cancer','vd-derrame','vd-psicologicas','vd-sida','vd-vih','vd-diagnostico'];
                 for (const n of medReq) { if (!document.querySelector(`input[name="${n}"]:checked`)) { Swal.fire('Validación', 'Responda todas las preguntas médicas.', 'warning'); return false; } }
-                if (document.querySelector('input[name="vd-sida"]:checked')?.value === 'si' || document.querySelector('input[name="vd-vih"]:checked')?.value === 'si') { Swal.fire('No asegurable', 'SIDA o VIH positivo. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                if (document.querySelector('input[name="vd-sida"]:checked')?.value === 'si' || document.querySelector('input[name="vd-vih"]:checked')?.value === 'si') { Swal.fire('No asegurable', 'SIDA o VIH positivo. Puede corregir o cerrar manualmente.', 'error'); return false; }
                 if (!document.getElementById('vd-autoriza-info-medica').checked) { Swal.fire('Validación', 'Debe autorizar el tratamiento de información médica.', 'warning'); return false; }
             }
             if (step === 2 && !isVida) {
@@ -1198,15 +1267,14 @@
                 const vincula = document.querySelector('input[name="vd-tipo-vinculacion"]:checked')?.value;
                 if (!vincula) { Swal.fire('Validación', 'Seleccione tipo de vinculación.', 'warning'); return false; }
                 if (vincula === 'No asegurable' || vincula === 'No autoriza el tratamiento de datos') {
-                    Swal.fire('Gestión suspendida', 'Cliente no asegurable o no autoriza. La gestión debe suspenderse.', 'info');
-                    closeModalLead();
+                    Swal.fire('Gestión suspendida', 'Cliente no asegurable o no autoriza. Puede corregir o cerrar manualmente.', 'info');
                     return false;
                 }
                 if (vincula === 'Empleado' && !document.getElementById('vd-tipo-contrato').value) { Swal.fire('Validación', 'Seleccione el tipo de contrato.', 'warning'); return false; }
                 if (!document.querySelector('input[name="vd-autoriza-reaseg"]:checked')) { Swal.fire('Validación', 'Indique autorización reaseguradora.', 'warning'); return false; }
                 const ocupLicita = document.querySelector('input[name="vd-ocupacion-licita"]:checked')?.value;
                 if (!ocupLicita) { Swal.fire('Validación', 'Indique si la ocupación es lícita.', 'warning'); return false; }
-                if (ocupLicita === 'no') { Swal.fire('No asegurable', 'La ocupación no es lícita. La gestión debe suspenderse.', 'error'); closeModalLead(); return false; }
+                if (ocupLicita === 'no') { Swal.fire('No asegurable', 'La ocupación no es lícita. Puede corregir o cerrar manualmente.', 'error'); return false; }
             }
             if (step === 3) {
                 const canal = document.getElementById('vd-canal-descuento').value;
@@ -1294,6 +1362,13 @@
         function closeModalLead() {
             document.getElementById('modalLeadGestion').classList.add('hidden');
             document.getElementById('modalLeadGestion').classList.remove('flex');
+            vdCurrentStep = 1;
+            try {
+                if (document.getElementById('modalLead-vd')) vdShowStep(1);
+            } catch (e) { /* modal puede no estar montado */ }
+            document.querySelectorAll('#modalLead-vd input, #modalLead-vd select').forEach(function(el) {
+                el.classList.remove('border-red-500', 'border-green-500');
+            });
             currentLeadReno = null;
             currentLeadVD = null;
         }
@@ -1473,7 +1548,11 @@
                     metrics = { total: renovacionesData.length, porVencer: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'Pendiente Renovacion'; }).length, renovadas: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'Poliza Renovada'; }).length, vencidas: renovacionesData.filter(function(r){ return (r.estadoGestion || r.estado) === 'VENCIDO'; }).length };
                 }
                 else if (!metrics.total && sectionKey === 'vd' && vdData.length) {
-                    metrics = { total: vdData.length, enGestion: vdData.length, ventas: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('venta') >= 0; }).length, desistidos: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('desist') >= 0; }).length };
+                    var enG = vdData.filter(function(v) {
+                        var e = ((v.estadoGestion || v.estado || '') + '').toLowerCase();
+                        return e.indexOf('gestión') >= 0 || e.indexOf('gestion') >= 0 || e.indexOf('en gest') >= 0;
+                    }).length;
+                    metrics = { total: vdData.length, enGestion: enG, ventas: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('venta') >= 0; }).length, desistidos: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('desist') >= 0; }).length };
                 }
 
                 var sectionLabel = SECTION_LABELS[sectionKey] || sectionKey;
@@ -1483,7 +1562,7 @@
                 container.appendChild(headerDiv);
 
                 kpis.forEach(function(kpi) {
-                    var val = metrics[kpi.key] || 0;
+                    var val = metrics[kpi.key] != null ? metrics[kpi.key] : 0;
                     var colorMap = { blue: 'border-blue-500 bg-blue-50 text-blue-500', yellow: 'border-yellow-500 bg-yellow-50 text-yellow-600', green: 'border-green-500 bg-green-50 text-green-500', red: 'border-red-500 bg-red-50 text-red-500', amber: 'border-amber-500 bg-amber-50 text-amber-600', gray: 'border-gray-400 bg-gray-50 text-gray-600' };
                     var cls = colorMap[kpi.color] || colorMap.blue;
                     var filterKey = (sectionKey === 'pqr' && (kpi.filterKey === 'proceso' || kpi.filterKey === 'resueltas' || kpi.filterKey === 'vencidas')) ? kpi.filterKey : (kpi.filterKey || 'section-' + sectionKey);
@@ -1512,7 +1591,7 @@
             if (showPQR && (role === 'superAdmin' || role === 'adminPQR' || role === 'pqr') && (visibleSections.pqr !== false) && (appData.length || (dashboardMetrics && dashboardMetrics.pqr))) {
                 var chartDiv = document.createElement('div');
                 chartDiv.className = 'bg-white rounded-xl shadow-sm p-6';
-                chartDiv.innerHTML = '<h3 class="text-lg font-semibold text-gray-700 mb-4">PQRs por Tipo</h3><div class="relative h-64 w-full"><canvas id="typeChart"></canvas></div>';
+                chartDiv.innerHTML = '<h3 class="text-lg font-semibold text-gray-700 mb-4">Leads PQR por tipo</h3><div class="relative h-64 w-full"><canvas id="typeChart"></canvas></div>';
                 container.appendChild(chartDiv);
                 setTimeout(function() { drawChart(getFilteredData()); }, 100);
             }
@@ -1525,7 +1604,11 @@
                 setTimeout(function() { drawRenoChart(m, chartType); }, 150);
             }
             if (showVD && (role === 'superAdmin' || role === 'adminVidaDesempleo' || role === 'Coordinadora' || role === 'Seguro de Vida' || role === 'Seguro de Desempleo') && (visibleSections.vd !== false) && (vdData.length || (dashboardMetrics && dashboardMetrics.vd))) {
-                var mvd = dashboardMetrics && dashboardMetrics.vd ? dashboardMetrics.vd : { total: vdData.length, enGestion: vdData.length, ventas: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('venta') >= 0; }).length, desistidos: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('desist') >= 0; }).length };
+                var mvdEnG = vdData.filter(function(v) {
+                    var e = ((v.estadoGestion || v.estado || '') + '').toLowerCase();
+                    return e.indexOf('gestión') >= 0 || e.indexOf('gestion') >= 0 || e.indexOf('en gest') >= 0;
+                }).length;
+                var mvd = dashboardMetrics && dashboardMetrics.vd ? dashboardMetrics.vd : { total: vdData.length, enGestion: mvdEnG, ventas: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('venta') >= 0; }).length, desistidos: vdData.filter(function(v){ return ((v.estadoGestion || v.estado) || '').toLowerCase().indexOf('desist') >= 0; }).length };
                 var chartDiv3 = document.createElement('div');
                 chartDiv3.className = 'bg-white rounded-xl shadow-sm p-6';
                 chartDiv3.innerHTML = '<h3 class="text-lg font-semibold text-gray-700 mb-4">Vida y Desempleo</h3><div class="relative h-64 w-full"><canvas id="vdChart"></canvas></div>';
@@ -1551,7 +1634,7 @@
             if (!ctx) return;
             chartInstanceVD = new Chart(ctx.getContext('2d'), {
                 type: type || 'doughnut',
-                data: { labels: ['En Gestión', 'Ventas', 'Desistidos'], datasets: [{ data: [metrics.enGestion || 0, metrics.ventas || 0, metrics.desistidos || 0], backgroundColor: ['#3B82F6', '#10B981', '#6B7280'], borderWidth: 0 }] },
+                data: { labels: ['En Gestión', 'Ventas', 'Desistidos'], datasets: [{ data: [metrics.enGestion != null ? metrics.enGestion : 0, metrics.ventas != null ? metrics.ventas : 0, metrics.desistidos != null ? metrics.desistidos : 0], backgroundColor: ['#3B82F6', '#10B981', '#6B7280'], borderWidth: 0 }] },
                 options: { responsive: true, maintainAspectRatio: false, cutout: type === 'doughnut' ? '70%' : 0, plugins: { legend: { position: 'bottom' } } }
             });
         }
@@ -1690,7 +1773,7 @@
             var visibleSections = settings.visibleSections || {};
             sections.forEach(function(s) { if (visibleSections[s] === undefined) visibleSections[s] = true; });
 
-            var sectionLabels = { pqr: 'PQRs', renovaciones: 'Renovaciones', vd: 'Vida y Desempleo' };
+            var sectionLabels = { pqr: 'Leads PQR', renovaciones: 'Renovaciones', vd: 'Vida y Desempleo' };
             var toggles = document.getElementById('dashboard-settings-toggles');
             if (toggles) {
                 toggles.innerHTML = sections.map(function(s) {
@@ -1732,14 +1815,11 @@
 
         // Utilidad para Badges
         function getStatusBadge(estado) {
-            const styles = {
-                'Pendiente': 'bg-red-50 text-red-600 border-red-200',
-                'En Proceso': 'bg-yellow-50 text-yellow-600 border-yellow-200',
-                'Resuelto': 'bg-green-50 text-green-600 border-green-200',
-                'Cerrado': 'bg-gray-100 text-gray-600 border-gray-200'
-            };
-            const style = styles[estado] || styles['Pendiente'];
-            return `<span class="px-2.5 py-1 text-xs font-semibold rounded-md border ${style}">${estado}</span>`;
+            const e = (estado || '').toString();
+            var variant = 'por-vencer';
+            if (e === 'Resuelto') variant = 'vigente';
+            else if (e === 'Cerrado') variant = 'vencido';
+            return `<span class="status-badge ${variant} text-xs">${e}</span>`;
         }
         
         function getTypeBadge(tipo) {
@@ -1808,7 +1888,7 @@
                         ${getStatusBadge(pqr.estado)}
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-center">
-                        <button onclick='openModal(${JSON.stringify(pqr).replace(/'/g, "&#39;")})' class="bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-transform transform hover:scale-105 shadow-sm">
+                        <button onclick='openModal(${JSON.stringify(pqr).replace(/'/g, "&#39;")})' class="crm-action-btn bg-proyectiva-blue hover:bg-blue-900 text-white px-4 py-2 rounded-lg text-xs font-bold transition-transform transform hover:scale-105 shadow-sm">
                             Gestionar
                         </button>
                     </td>
